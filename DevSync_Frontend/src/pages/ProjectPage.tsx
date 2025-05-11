@@ -74,7 +74,7 @@ A modern e-commerce platform built with React and Node.js.
 
 \`\`\`bash
 # Clone the repository
-git clone https://codecollab.com/johndoe/ecommerce-platform.git
+git clone https://DevSync.com/johndoe/ecommerce-platform.git
 
 # Install dependencies
 npm install
@@ -148,7 +148,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
                     <div className="flex items-center gap-2">
                         <Link to="/" className="flex items-center gap-2">
                             <Code className="h-6 w-6 text-emerald-500" />
-                            <span className="font-bold">CodeCollab</span>
+                            <span className="font-bold">DevSync</span>
                         </Link>
                         <span className="text-zinc-400">/</span>
                         <Link to={`/user/${project.owner.username}`} className="text-sm hover:underline">

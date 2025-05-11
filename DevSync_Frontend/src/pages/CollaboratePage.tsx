@@ -115,7 +115,7 @@ export default ProductCard;`,
                         <div className="flex items-center gap-4">
                             <Link to="/" className="flex items-center gap-2">
                                 <Code className="h-6 w-6 text-emerald-500" />
-                                <span className="font-bold">CodeCollab</span>
+                                <span className="font-bold">DevSync</span>
                             </Link>
                             <span className="text-zinc-400">/</span>
                             <Link to={`/user/${project.owner}`} className="text-sm hover:underline">

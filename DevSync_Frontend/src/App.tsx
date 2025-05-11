@@ -8,6 +8,8 @@ import CollaboratePage from "./pages/CollaboratePage"
 import HomePage from "./pages/Landing"
 import LoginPage from "./pages/Login"
 import RegisterPage from "./pages/Register"
+import ExplorePage from "./pages/ExplorePage"
+import AccountSettings from "./pages/AccountSettings"
 
 function App() {
     return (
@@ -24,7 +26,9 @@ function App() {
                 <Route path="/project/:id/whiteboard" element={<WhiteboardPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/search" element={<SearchPage />} />
+                <Route path="/explore" element={<ExplorePage />} />
                 <Route path="/collaborate/:id" element={<CollaboratePage />} />
+                <Route path="/account/settings" element={<AccountSettings />} />
             </Routes>
         </Router>
     )

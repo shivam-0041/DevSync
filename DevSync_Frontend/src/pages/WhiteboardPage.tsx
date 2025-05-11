@@ -130,7 +130,7 @@ export default function WhiteboardPage({ params }) {
                         <div className="flex items-center gap-4">
                             <Link to="/" className="flex items-center gap-2">
                                 <Code className="h-6 w-6 text-emerald-500" />
-                                <span className="font-bold">CodeCollab</span>
+                                <span className="font-bold">DevSync</span>
                             </Link>
                             <span className="text-zinc-400">/</span>
                             <Link to={`/project/${projectId}`} className="text-sm hover:underline">

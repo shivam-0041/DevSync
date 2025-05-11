@@ -138,7 +138,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-10">
               <Link to="/" className="flex items-center gap-2">
                 <Code className="h-6 w-6 text-emerald-400" />
-                <span className="font-bold text-white">CodeCollab</span>
+                <span className="font-bold text-white">DevSync</span>
               </Link>
               <div className="hidden md:flex relative w-64">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-zinc-500" />

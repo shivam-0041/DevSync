@@ -132,7 +132,7 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2">
               <Code className="h-6 w-6 text-emerald-500" />
-              <span className="font-bold">CodeCollab</span>
+              <span className="font-bold">DevSync</span>
             </Link>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm">
