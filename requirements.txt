@@ -1,0 +1,11 @@
+django
+django-cors-headers
+djangorestframework
+djangorestframework-simplejwt
+react-vite
+axios
+
+
+SuperUser:
+->Username:Admin
+->Pass:Admin@123
