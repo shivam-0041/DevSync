@@ -49,7 +49,7 @@ export default function AccountSettings() {
                 <div className="container mx-auto px-4 py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-10">
-                            <Link to="/" className="flex items-center gap-2">
+                            <Link to="/dashboard" className="flex items-center gap-2">
                                 <Code className="h-6 w-6 text-emerald-400" />
                                 <span className="font-bold text-white">DevSync</span>
                             </Link>

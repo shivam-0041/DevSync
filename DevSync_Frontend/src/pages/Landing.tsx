@@ -71,6 +71,9 @@ export default function LandingPage() {
                         <Link to="#about" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
                             About
                         </Link>
+                        <Link to="#about" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
+                            Contact us
+                        </Link>
                     </nav>
                     <div className="flex items-center gap-4">
                         <Link to="/login">

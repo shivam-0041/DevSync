@@ -136,7 +136,7 @@ export default function Dashboard() {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-10">
-              <Link to="/" className="flex items-center gap-2">
+              <Link to="/dashboard" className="flex items-center gap-2">
                 <Code className="h-6 w-6 text-emerald-400" />
                 <span className="font-bold text-white">DevSync</span>
               </Link>
@@ -198,10 +198,12 @@ export default function Dashboard() {
                     View all notifications
                   </DropdownMenuItem>
                 </DropdownMenuContent>
-              </DropdownMenu>
-              <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-300">
-                <Settings className="h-5 w-5" />
-              </Button>
+               </DropdownMenu>
+               <Link to="/account/settings">
+                  <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-300">
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                </Link>
               <Link to="/profile">
                 <Avatar>
                   <AvatarImage src="/placeholder.svg?height=40&width=40" alt="User" />

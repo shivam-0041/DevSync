@@ -113,7 +113,7 @@ export default ProductCard;`,
                 <div className="container mx-auto px-4 py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <Link to="/" className="flex items-center gap-2">
+                            <Link to="/dashboard" className="flex items-center gap-2">
                                 <Code className="h-6 w-6 text-emerald-500" />
                                 <span className="font-bold">DevSync</span>
                             </Link>

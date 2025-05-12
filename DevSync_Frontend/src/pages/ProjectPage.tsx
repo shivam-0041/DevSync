@@ -24,10 +24,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import { Badge } from "../components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { TaskAllocation } from "../components/task-allocation"
-
-export default function ProjectPage({ params }) {
+import { useParams } from "react-router-dom";
+export default function ProjectPage() {
     // In a real app, we would fetch the project data based on the ID
-    const projectId = params.id
+    //const projectId = params.id
+
+    const { id: projectId } = useParams();
 
     // Sample project data
     const project = {
