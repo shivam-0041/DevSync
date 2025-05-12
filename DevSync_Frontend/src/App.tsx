@@ -17,6 +17,10 @@ import FeaturesPage from "./pages/Features"
 import ContactPage from "./pages/Contactus"
 import WorkflowPage from "./pages/Workflow"
 import HowItWorksPage from "./pages/HowItWorks"
+import ProjectSettings from "./pages/ProjectSettings"
+import ManageCollaborators from "./pages/ManageCollaborators"
+import UserProfile from "./pages/UserProfile"
+
 
 
 function App() {
@@ -42,6 +46,10 @@ function App() {
                 <Route path="/explore" element={<ExplorePage />} />
                 <Route path="/collaborate/:id" element={<CollaboratePage />} />
                 <Route path="/account/settings" element={<AccountSettings />} />
+                <Route path="/project/:id/settings" element={<ProjectSettings />} />
+                <Route path="/project/:id/manage-collaborators" element={<ManageCollaborators />} />
+                <Route path="/user/:id" element={<UserProfile />} />
+
             </Routes>
         </Router>
     )

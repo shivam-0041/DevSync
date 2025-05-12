@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowRight, Code, GitBranch, GitPullRequest, MessageSquare, Users } from "lucide-react"
 import {Link} from "react-router-dom"
-import Image from "next/image"
 
 export default function HowItWorksPage() {
     return (
