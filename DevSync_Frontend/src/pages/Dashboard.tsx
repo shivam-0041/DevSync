@@ -33,7 +33,7 @@ import { AIAssistant } from "../components/ai-assistant"
 import { QuickActions, QuickActionsHeader } from "../components/quick-actions"
 import { TeamMemberList } from "../components/team-member-list"
 import { DevToolsSidebar } from "../components/dev-tools-sidebar"
-
+import ProjectPage from "./ProjectPage"
 export default function Dashboard() {
   // Sample tasks data
   const tasks = [

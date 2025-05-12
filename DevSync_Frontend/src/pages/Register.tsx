@@ -3,9 +3,38 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
 import { Code, Github } from "lucide-react"
-import {Link} from "react-router-dom"
-
+import { Link,useNavigate } from "react-router-dom"
+import React,{ useState, useEffect } from "react";
+import { handleRegisterSubmit, getCsrfToken } from "../routes/api"; 
 export default function RegisterPage() {
+    const navigate = useNavigate();
+    const [formData, setFormData] = useState({
+        username: "",
+        email: "",
+        password: "",
+        firstName: "",
+        lastName: "",
+    });
+    useEffect(() => {
+        getCsrfToken();
+    }, []);
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const result = await handleRegisterSubmit(formData);
+        if (result.success) {
+            // Redirect to dashboard
+            navigate('/dashboard');
+        } else {
+            setError(result.message);
+        }
+        //alert(result.message);
+        // Optionally redirect to login if result.success
+    };
     return (
         <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-md">
@@ -14,7 +43,7 @@ export default function RegisterPage() {
                         <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center">
                             <Code className="h-5 w-5 text-emerald-400" />
                         </div>
-                        <h1 className="text-2xl font-bold text-zinc-100">DevHub</h1>
+                        <h1 className="text-2xl font-bold text-zinc-100">DevSync</h1>
                     </Link>
                     <h2 className="text-2xl font-bold text-zinc-100">Create your account</h2>
                     <p className="text-zinc-400 mt-2">Join thousands of developers building amazing software</p>
@@ -26,7 +55,7 @@ export default function RegisterPage() {
                         <CardDescription className="text-zinc-400">Enter your information to create an account</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form>
+                        <form onSubmit={handleSubmit}>
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
@@ -35,6 +64,8 @@ export default function RegisterPage() {
                                         </Label>
                                         <Input
                                             id="firstName"
+                                            name="firstName"
+                                            onChange={handleChange}
                                             placeholder="John"
                                             className="bg-zinc-800 border-zinc-700 text-zinc-300 placeholder:text-zinc-500 focus-visible:ring-zinc-700"
                                         />
@@ -45,6 +76,8 @@ export default function RegisterPage() {
                                         </Label>
                                         <Input
                                             id="lastName"
+                                            name="lastName"
+                                            onChange={handleChange}
                                             placeholder="Doe"
                                             className="bg-zinc-800 border-zinc-700 text-zinc-300 placeholder:text-zinc-500 focus-visible:ring-zinc-700"
                                         />
@@ -56,6 +89,8 @@ export default function RegisterPage() {
                                     </Label>
                                     <Input
                                         id="username"
+                                        name="username"
+                                        onChange={handleChange}
                                         placeholder="johndoe"
                                         className="bg-zinc-800 border-zinc-700 text-zinc-300 placeholder:text-zinc-500 focus-visible:ring-zinc-700"
                                     />
@@ -66,6 +101,8 @@ export default function RegisterPage() {
                                     </Label>
                                     <Input
                                         id="email"
+                                        name="email"
+                                        onChange={handleChange}
                                         type="email"
                                         placeholder="john@example.com"
                                         className="bg-zinc-800 border-zinc-700 text-zinc-300 placeholder:text-zinc-500 focus-visible:ring-zinc-700"
@@ -77,6 +114,8 @@ export default function RegisterPage() {
                                     </Label>
                                     <Input
                                         id="password"
+                                        name="password"
+                                        onChange={handleChange}
                                         type="password"
                                         placeholder="••••••••"
                                         className="bg-zinc-800 border-zinc-700 text-zinc-300 placeholder:text-zinc-500 focus-visible:ring-zinc-700"

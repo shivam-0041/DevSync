@@ -40,19 +40,30 @@ class RegisterUserView(generics.CreateAPIView):
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
 # Function-based view for logging in a user
 @api_view(['POST'])
+@csrf_protect
 def login_user(request):
-    username = request.data.get("username")
+    login_input = request.data.get("username")  # Could be username or email
     password = request.data.get("password")
 
-    if not username or not password:
-        return Response({"error": "Username and password are required"}, status=400)
+    if not login_input or not password:
+        return Response({"error": "Username/email and password are required"}, status=400)
 
     try:
-        user = RegisteredUser.objects.get(username=username)
+        #print(login_input)
+        # Try by username first
+        user = RegisteredUser.objects.get(username=login_input)
     except RegisteredUser.DoesNotExist:
-        return Response({"error": "User not found"}, status=404)
+        # Then try by email
+        try:
+            user = RegisteredUser.objects.get(email=login_input)
+        except RegisteredUser.DoesNotExist:
+            return Response({"error": "User not found"}, status=404)
 
     if check_password(password, user.password):
         return Response({
@@ -60,7 +71,7 @@ def login_user(request):
             "username": user.username,
             "email": user.email,
             "full_name": f"{user.first_name} {user.last_name}"
-        })
+        }, status=200)
     else:
         return Response({"error": "Invalid credentials"}, status=400)
 
