@@ -2,7 +2,7 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowRight, Code, GitBranch, GitPullRequest, MessageSquare, Users } from "lucide-react"
-import Link from "next/link"
+import {Link} from "react-router-dom"
 import Image from "next/image"
 
 export default function HowItWorksPage() {
@@ -142,12 +142,12 @@ export default function HowItWorksPage() {
                     Join thousands of developers who have already discovered the power of DevSync.
                 </p>
                 <div className="mt-8 flex flex-wrap justify-center gap-4">
-                    <Link href="/signup">
+                    <Link to="/signup">
                         <Button size="lg" className="bg-emerald-500 text-black hover:bg-emerald-600">
                             Start for free
                         </Button>
                     </Link>
-                    <Link href="/contact">
+                    <Link to="/contact">
                         <Button size="lg" variant="outline" className="border-gray-700">
                             Contact Sales
                         </Button>

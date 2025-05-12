@@ -3,12 +3,12 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
+import { Input } from "../components/ui/input"
+import { Label } from "../components/ui/label"
 import { CheckCircle2 } from "lucide-react"
-import Link from "next/link"
+import {Link} from "react-router-dom"
 
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState("")
@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
                             <p className="mb-4 text-gray-400">
                                 Your password has been reset successfully. You will be redirected to the home page shortly.
                             </p>
-                            <Link href="/">
+                            <Link to="/">
                                 <Button className="bg-emerald-500 text-black hover:bg-emerald-600">Go to Home Page</Button>
                             </Link>
                         </div>

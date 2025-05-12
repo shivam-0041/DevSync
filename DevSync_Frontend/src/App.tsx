@@ -10,6 +10,14 @@ import LoginPage from "./pages/Login"
 import RegisterPage from "./pages/Register"
 import ExplorePage from "./pages/ExplorePage"
 import AccountSettings from "./pages/AccountSettings"
+import ForgotPasswordPage from "./pages/ForgotPassword"
+import ResetPasswordPage from "./pages/ResetPassword"
+import AboutPage from "./pages/About"
+import FeaturesPage from "./pages/Features" 
+import ContactPage from "./pages/Contactus"
+import WorkflowPage from "./pages/Workflow"
+import HowItWorksPage from "./pages/HowItWorks"
+
 
 function App() {
     return (
@@ -18,9 +26,14 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                  <Route path="/login" element={<LoginPage />} /> 
                  <Route path="/register" element={<RegisterPage />} /> 
-                {/* <Route path="/forgot-password" element={<ForgotPasswordPage />} /> */}
-                {/* <Route path="/reset-password" element={<ResetPasswordPage />} /> */}
+                 <Route path="/forgot-password" element={<ForgotPasswordPage />} /> 
+                 <Route path="/reset-password" element={<ResetPasswordPage />} /> 
                 {/* <Route path="/verify-email" element={<VerifyEmailPage />} /> */}
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/features" element={<FeaturesPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/workflow" element={<WorkflowPage />} />
+                <Route path="/how-it-works" element={<HowItWorksPage />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/project/:id" element={<ProjectPage />} />
                 <Route path="/project/:id/whiteboard" element={<WhiteboardPage />} />

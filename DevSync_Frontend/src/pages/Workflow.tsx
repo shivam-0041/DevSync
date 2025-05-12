@@ -1,8 +1,8 @@
 import type React from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { ArrowRight, CheckCircle2, Code, GitBranch, GitPullRequest, Zap } from "lucide-react"
-import Link from "next/link"
+import {Link} from "react-router-dom"
 
 export default function WorkflowPage() {
     return (
@@ -69,12 +69,12 @@ export default function WorkflowPage() {
                             integrates seamlessly with your existing tools and workflows.
                         </p>
                         <div className="mt-8 flex flex-wrap gap-4">
-                            <Link href="/signup">
+                            <Link to="/signup">
                                 <Button className="bg-emerald-500 text-black hover:bg-emerald-600">
                                     Get Started <ArrowRight className="ml-2 h-4 w-4" />
                                 </Button>
                             </Link>
-                            <Link href="/how-it-works">
+                            <Link to="/how-it-works">
                                 <Button variant="outline" className="border-gray-700">
                                     Learn More
                                 </Button>

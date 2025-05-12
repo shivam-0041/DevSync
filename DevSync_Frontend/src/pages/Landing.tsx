@@ -62,16 +62,16 @@ export default function LandingPage() {
                         <h1 className="text-xl font-semibold tracking-tight">DevSync</h1>
                     </div>
                     <nav className="hidden md:flex items-center gap-10">
-                        <Link to="#features" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
+                        <Link to="/features" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
                             Features
                         </Link>
-                        <Link to="#workflow" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
+                        <Link to="/workflow" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
                             Workflow
                         </Link>
-                        <Link to="#about" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
+                        <Link to="/about" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
                             About
                         </Link>
-                        <Link to="#about" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
+                        <Link to="/contact" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
                             Contact us
                         </Link>
                     </nav>
@@ -132,7 +132,7 @@ export default function LandingPage() {
                                 Start for free
                             </Button>
                         </Link>
-                        <Link to="#features">
+                        <Link to="/how-it-works">
                             <Button
                                 size="lg"
                                 variant="outline"
