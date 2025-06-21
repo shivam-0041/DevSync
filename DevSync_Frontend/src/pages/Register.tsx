@@ -4,17 +4,22 @@ import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
 import { Code, Github } from "lucide-react"
 import { Link,useNavigate } from "react-router-dom"
-import React,{ useState, useEffect } from "react";
-import { handleRegisterSubmit, getCsrfToken } from "../routes/api"; 
+import { useState, useEffect,setError } from "react";
+import { handleRegisterSubmit, getCsrfToken } from "../routes/auth"; 
+import React from "react";
 export default function RegisterPage() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
+        firstName: "",
+        lastName: "",
         username: "",
         email: "",
         password: "",
-        firstName: "",
-        lastName: "",
+        
     });
+
+    const [error, setError] = useState("");
+
     useEffect(() => {
         getCsrfToken();
     }, []);
@@ -22,19 +27,37 @@ export default function RegisterPage() {
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Check if all required fields are filled
+        if (!formData.username || !formData.email || !formData.firstName || !formData.password) {
+            setError("Please fill out all required fields.");
+            return;
+        }
         const result = await handleRegisterSubmit(formData);
         if (result.success) {
             // Redirect to dashboard
-            navigate('/dashboard');
+            navigate('/login');
         } else {
             setError(result.message);
+            alert(result.message);
         }
-        //alert(result.message);
-        // Optionally redirect to login if result.success
     };
+
+    //const handleSubmit = async (e) => {
+    //    e.preventDefault();
+    //    navigate('/verify-email');
+    //    //const result = await handleRegisterSubmit(formData);
+    //    //if (result.success) {
+    //    //    // Redirect to dashboard
+    //    //    navigate('/verify-email');
+    //    //} else {
+    //    //    setError(result.message);
+    //    //}
+    //    //
+    //    // Optionally redirect to login if result.success
+    //};
     return (
         <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-md">
@@ -60,7 +83,7 @@ export default function RegisterPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="firstName" className="text-zinc-300">
-                                            First name
+                                            First name<span className="text-red-500">*</span>
                                         </Label>
                                         <Input
                                             id="firstName"
@@ -85,7 +108,8 @@ export default function RegisterPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="username" className="text-zinc-300">
-                                        Username
+                                        Username<span className="text-red-500">*</span>
+                                    
                                     </Label>
                                     <Input
                                         id="username"
@@ -97,7 +121,7 @@ export default function RegisterPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="email" className="text-zinc-300">
-                                        Email
+                                        Email<span className="text-red-500">*</span>
                                     </Label>
                                     <Input
                                         id="email"
@@ -110,7 +134,7 @@ export default function RegisterPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="password" className="text-zinc-300">
-                                        Password
+                                        Password<span className="text-red-500">*</span>
                                     </Label>
                                     <Input
                                         id="password"

@@ -1,4 +1,6 @@
 # devsync/models.py
+
+'''
 from django.db import models
 from django.contrib.auth.models import User
 import uuid
@@ -96,3 +98,5 @@ def has_access(user, repository):
         return role.role in ['owner', 'collaborator']
     except RepositoryRole.DoesNotExist:
         return False
+
+'''

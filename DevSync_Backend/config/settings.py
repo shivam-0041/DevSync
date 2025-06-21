@@ -40,6 +40,9 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'corsheaders',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount.providers.github',
 
     'core',
     'authentication',
@@ -58,6 +61,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -72,6 +76,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.request',
             ],
         },
     },
@@ -108,6 +113,8 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+AUTH_USER_MODEL = 'authentication.RegisteredUser'
 
 
 # Internationalization
@@ -151,4 +158,25 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'infinite.02304@gmail.com'
-EMAIL_HOST_PASSWORD = 'your_app_password'
+EMAIL_HOST_PASSWORD = 'xbri fydk swuu jiqe'
+
+
+#AUTHENTICATION_BACKENDS = [
+#   
+#    # Needed to login by username in Django admin, regardless of `allauth`
+#    'django.contrib.auth.backends.ModelBackend',
+#
+#    # `allauth` specific authentication methods, such as login by email
+#    'allauth.account.auth_backends.AuthenticationBackend',
+#    
+#]
+
+SOCIALACCOUNT_PROVIDERS = {
+    'github': {
+        'APP': {
+            'client_id': 'Ov23liwlTKHODlBf7Ljt',
+            'secret': '8cb1c3c5296bde5b81f15570ef8dd96bf40460b7',
+            'key': ''
+        }
+    }
+}

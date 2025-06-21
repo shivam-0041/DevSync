@@ -1,3 +1,4 @@
+'''
 from rest_framework.permissions import BasePermission
 from .models import UserProjectRole, Project
 
@@ -18,3 +19,5 @@ class IsOwnerOrCollaborator(BasePermission):
         if project.owner == user:
             return True
         return UserProjectRole.objects.filter(user=user, project=project, role='collaborator').exists()
+
+'''

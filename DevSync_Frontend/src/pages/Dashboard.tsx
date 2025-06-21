@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom"
+import { Link, useParams, useNavigate} from "react-router-dom"
 import {
   Search,
   GitBranch,
@@ -34,7 +34,27 @@ import { QuickActions, QuickActionsHeader } from "../components/quick-actions"
 import { TeamMemberList } from "../components/team-member-list"
 import { DevToolsSidebar } from "../components/dev-tools-sidebar"
 import ProjectPage from "./ProjectPage"
-export default function Dashboard() {
+import { useEffect } from "react";
+
+const Dashboard = () => {
+    const navigate = useNavigate();
+    const { username } = useParams();
+    const loggedInUser = JSON.parse(localStorage.getItem("username")); // Assuming "user" object is stored
+
+    //useEffect(() => {
+    //    if (!loggedInUser) {
+    //        navigate("/login");
+    //    } else if (loggedInUser.username !== username) {
+    //        navigate(`/dashboard/${loggedInUser.username}`);
+    //    }
+    //}, [loggedInUser, username, navigate]);
+
+    //if (!loggedInUser || loggedInUser.username !== username) {
+    //    return null; // Render nothing while redirecting
+    //}
+
+
+    
   // Sample tasks data
   const tasks = [
     {
@@ -618,3 +638,6 @@ const trendingTools = [
     trending: 78,
   },
 ]
+
+
+export default Dashboard;

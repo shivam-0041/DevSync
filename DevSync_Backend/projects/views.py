@@ -1,4 +1,5 @@
-from rest_framework import viewsets, permissions
+
+'''from rest_framework import viewsets, permissions
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -46,3 +47,5 @@ class WhiteboardViewSet(viewsets.ModelViewSet):
             serializer.save(repository=repository)
         else:
             raise PermissionDenied("You don't have access to this whiteboard")
+
+'''

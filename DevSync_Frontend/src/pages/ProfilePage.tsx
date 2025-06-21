@@ -22,30 +22,68 @@ import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Badge } from "../components/ui/badge"
+import { fetchUserProfile } from '../routes/profile';
+import { useState, useEffect } from 'react';
 
 export default function ProfilePage() {
+
+    const [user, setUser] = useState([]);
+    // Fetch user profile data from the backend
+    useEffect(() => {
+        fetchUserProfile()
+            .then((res: { data: any }) => {
+                const data = res.data;
+
+                // Map backend fields to frontend template
+                setUser({
+                    name: data.name,
+                    username: data.username,
+                    avatar: data.avatar,
+                    bio: data.bio || "",
+                    location: data.location || "",
+                    email: data.email,
+                    website: data.website || "",
+                    joinedDate: data.joinedDate,
+                    company: data.company || "",
+                    followers: data.followers || 0,
+                    following: data.following || 0,
+                    repositories: data.repositories || 0,
+                    contributions: data.contributions || 0,
+                    skills: data.skills || [],
+                    socialLinks: {
+                        github: data.social_links?.github || "",
+                        twitter: data.social_links?.twitter || "",
+                        linkedin: data.social_links?.linkedin || "",
+                    },
+                });
+            })
+            .catch((err: any) => console.error(err));
+    }, []);
+
+
+
   // Sample user data
-  const user = {
-    name: "John Doe",
-    username: "johndoe",
-    avatar: "/placeholder.svg?height=200&width=200",
-    bio: "Full-stack developer passionate about building great user experiences. I love working with React, Node.js, and TypeScript.",
-    location: "San Francisco, CA",
-    email: "john.doe@example.com",
-    website: "https://johndoe.dev",
-    joinedDate: "January 2020",
-    company: "Acme Inc.",
-    followers: 245,
-    following: 123,
-    repositories: 32,
-    contributions: 867,
-    skills: ["JavaScript", "TypeScript", "React", "Node.js", "GraphQL", "MongoDB", "AWS"],
-    socialLinks: {
-      github: "github.com/johndoe",
-      twitter: "twitter.com/johndoe",
-      linkedin: "linkedin.com/in/johndoe",
-    },
-  }
+  //const user = {
+  //  name: "John Doe",
+  //  username: "johndoe",
+  //  avatar: "/placeholder.svg?height=200&width=200",
+  //  bio: "Full-stack developer passionate about building great user experiences. I love working with React, Node.js, and TypeScript.",
+  //  location: "San Francisco, CA",
+  //  email: "john.doe@example.com",
+  //  website: "https://johndoe.dev",
+  //  joinedDate: "January 2020",
+  //  company: "Acme Inc.",
+  //  followers: 245,
+  //  following: 123,
+  //  repositories: 32,
+  //  contributions: 867,
+  //  skills: ["JavaScript", "TypeScript", "React", "Node.js", "GraphQL", "MongoDB", "AWS"],
+  //  socialLinks: {
+  //    github: "github.com/johndoe",
+  //    twitter: "twitter.com/johndoe",
+  //    linkedin: "linkedin.com/in/johndoe",
+  //  },
+  //}
 
   // Sample repositories data
   const repositories = [

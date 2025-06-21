@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react"
 import type React from "react"
 
-import {Link} from "react-router-dom"
+import { Link, useParams } from "react-router-dom"
 import { Code, Save, Download, Undo, Redo, Trash2, Square, Circle, Type, Pencil, ImageIcon } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Slider } from "../components/ui/slider"
@@ -11,8 +11,8 @@ import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group"
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import { Input } from "../components/ui/input"
 
-export default function WhiteboardPage({ params }) {
-    const projectId = params.id
+export default function WhiteboardPage() {
+    const { id: projectId } = useParams();
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const [tool, setTool] = useState<string>("pencil")
     const [color, setColor] = useState<string>("#000000")

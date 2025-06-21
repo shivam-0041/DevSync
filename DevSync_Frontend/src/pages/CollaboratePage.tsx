@@ -1,5 +1,5 @@
 "use client"
-import {Link} from "react-router-dom"
+import { Link, useParams } from "react-router-dom"
 import {
     Code,
     MessageSquare,
@@ -23,8 +23,8 @@ import { Badge } from "../components/ui/badge"
 import { Separator } from "../components/ui/separator"
 import { ScrollArea } from "../components/ui/scroll-area"
 
-export default function CollaboratePage({ params }) {
-    const projectId = params.id
+export default function CollaboratePage() {
+    const { id: projectId } = useParams();
 
     // Sample project data
     const project = {

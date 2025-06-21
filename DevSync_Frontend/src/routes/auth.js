@@ -16,7 +16,7 @@ export async function getCsrfToken() {
     }
 }
 
-// Function to handle registration
+//Function to handle registration
 export async function handleRegisterSubmit(formData) {
     try {
         // First, get the CSRF token
@@ -31,11 +31,12 @@ export async function handleRegisterSubmit(formData) {
             },
             credentials: "include",  // Make sure credentials (cookies) are included
             body: JSON.stringify({
+                first_name: formData.firstName,
+                last_name: formData.lastName,
                 username: formData.username,
                 email: formData.email,
                 password: formData.password,
-                first_name: formData.firstName,
-                last_name: formData.lastName,
+                
             }),
         });
 
@@ -51,6 +52,45 @@ export async function handleRegisterSubmit(formData) {
         return { success: false, message: "Server error. Please try again later." };
     }
 }
+
+
+//export async function handleRegistrationSubmit(formData) {
+//    try {
+//        // ? REMOVED verifyEmailCode check from frontend, it should be handled in backend
+
+//        await getCsrfToken();
+
+//        const response = await fetch(`${BASE_URL}register/`, {
+//            method: "POST",
+//            headers: {
+//                "Content-Type": "application/json",
+//                "X-Csrftoken": getCookie("csrftoken"),
+//            },
+//            credentials: "include",
+//            body: JSON.stringify({
+//                first_name: formData.firstName,
+//                last_name: formData.lastName,
+//                username: formData.username,
+//                email: formData.email,
+//                password: formData.password,
+                
+//            }),
+//        });
+
+//        const data = await response.json();
+
+//        if (response.ok) {
+//            return { success: true, message: "Account created successfully!", data };
+//        } else {
+//            return { success: false, message: data.message || "Registration failed." };
+//        }
+//    } catch (error) {
+//        console.error("Registration error:", error);
+//        return { success: false, message: "Server error. Please try again later." };
+//    }
+//}
+
+
 
 // Helper to get a cookie by name
 function getCookie(name) {
@@ -104,6 +144,28 @@ export async function loginUser(username, password) {
         console.error("Login error:", error);
         return { success: false, message: "Server error. Please try again later." };
     }
+
 }
+export async function verifyEmailCode(email, code) {
+    try {
+        // ? Ensure the email and code are sent to the backend for validation
+        const response = await fetch(`${BASE_URL}verify-email/`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, code }), // ? send email and code for verification
+        });
 
+        const data = await response.json();
 
+        if (response.ok) {
+            // ? If verification is successful, backend should handle the activation
+            return { success: true };
+        } else {
+            return { success: false, message: data.error || "Invalid code" };
+        }
+    } catch (error) {
+        return { success: false, message: "Server error" };
+    }
+}

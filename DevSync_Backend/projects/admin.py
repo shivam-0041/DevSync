@@ -1,4 +1,6 @@
 # devsync/admin.py
+
+'''
 from django.contrib import admin
 from .models import (
     Project, UserProjectRole, Branch, PullRequest, Task,
@@ -16,3 +18,4 @@ admin.site.register(LanguageUsage)
 admin.site.register(CodeFile)
 admin.site.register(Chat)
 admin.site.register(Whiteboard)
+'''

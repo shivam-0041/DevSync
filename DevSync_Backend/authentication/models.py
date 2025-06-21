@@ -17,6 +17,7 @@ class RegisteredUserManager(BaseUserManager):
             raise ValueError('Email already exists')
         
         user = self.model(username=username, email=email, **extra_fields)
+        user.username = username.lower()  # Normalize username to lowercase
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -45,6 +46,26 @@ class RegisteredUser(AbstractBaseUser):
 
     USERNAME_FIELD = 'username'  # The field to use for login (username)
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']  # Add all fields that are required during user creation
+    
+    def has_perm(self, perm, obj=None):
+        return self.is_superuser or self.is_staff
+
+    def has_module_perms(self, app_label):
+        return self.is_superuser or self.is_staff
+
 
     def __str__(self):
         return self.username
+
+#class PendingUser(models.Model):
+#    username = models.CharField(max_length=150, unique=True)
+#    email = models.EmailField(unique=True)
+#    password = models.CharField(max_length=255)
+#    first_name = models.CharField(max_length=150)
+#    last_name = models.CharField(max_length=150)
+#    verification_code = models.CharField(max_length=6)
+#    code_expiry = models.DateTimeField()  # Time when the code expires
+#    created_at = models.DateTimeField(auto_now_add=True)
+#    
+#    def __str__(self):
+#        return self.username

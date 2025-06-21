@@ -5,7 +5,7 @@ import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
 import { Code, Github } from "lucide-react"
 import { Link } from "react-router-dom"
-import { loginUser } from '../routes/api';
+import { loginUser } from '../routes/auth';
 import React,{ useState } from "react";
 import { useNavigate } from "react-router-dom";
 export default function LoginPage() {
@@ -19,16 +19,20 @@ export default function LoginPage() {
     // Handle form submission
     //console.log(formData);
     const handleSubmit = async (e) => {
+        
         e.preventDefault();
         const { username, password } = formData;
         // Call loginUser with the destructured username and password
+        const loggedInUser = { username, password };
         const response = await loginUser(username, password);
         if (response.success) {
-            navigate('/dashboard');
+            navigate(`/dashboard/${loggedInUser.username}`);
+            //localStorage.setItem("user", response.data.user.username);
         } else {
             setError(response.message || 'Login failed.');
         }
     };
+
     return (
         <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-md">

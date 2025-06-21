@@ -1,6 +1,6 @@
 import type React from "react"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "../components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { ArrowRight, Code, GitBranch, GitPullRequest, MessageSquare, Users } from "lucide-react"
 import {Link} from "react-router-dom"
 
@@ -44,15 +44,15 @@ export default function HowItWorksPage() {
                                 </Link>
                             </div>
                         </div>
-                        <div className="flex items-center justify-center rounded-lg border border-gray-800 bg-gray-900/50 p-4">
-                            <Image
-                                src="/placeholder.svg?height=300&width=500"
-                                alt="Code Editor Screenshot"
-                                width={500}
-                                height={300}
-                                className="rounded"
-                            />
-                        </div>
+                        {/*<div className="flex items-center justify-center rounded-lg border border-gray-800 bg-gray-900/50 p-4">*/}
+                        {/*    <Image*/}
+                        {/*        src="/placeholder.svg?height=300&width=500"*/}
+                        {/*        alt="Code Editor Screenshot"*/}
+                        {/*        width={500}*/}
+                        {/*        height={300}*/}
+                        {/*        className="rounded"*/}
+                        {/*    />*/}
+                        {/*</div>*/}
                     </div>
                 </TabsContent>
                 <TabsContent value="collaborate" className="mt-8">
@@ -76,15 +76,15 @@ export default function HowItWorksPage() {
                                 </Link>
                             </div>
                         </div>
-                        <div className="flex items-center justify-center rounded-lg border border-gray-800 bg-gray-900/50 p-4">
-                            <Image
-                                src="/placeholder.svg?height=300&width=500"
-                                alt="Collaboration Screenshot"
-                                width={500}
-                                height={300}
-                                className="rounded"
-                            />
-                        </div>
+                        {/*<div className="flex items-center justify-center rounded-lg border border-gray-800 bg-gray-900/50 p-4">*/}
+                        {/*    <Image*/}
+                        {/*        src="/placeholder.svg?height=300&width=500"*/}
+                        {/*        alt="Collaboration Screenshot"*/}
+                        {/*        width={500}*/}
+                        {/*        height={300}*/}
+                        {/*        className="rounded"*/}
+                        {/*    />*/}
+                        {/*</div>*/}
                     </div>
                 </TabsContent>
                 <TabsContent value="deploy" className="mt-8">
@@ -108,32 +108,32 @@ export default function HowItWorksPage() {
                                 </Link>
                             </div>
                         </div>
-                        <div className="flex items-center justify-center rounded-lg border border-gray-800 bg-gray-900/50 p-4">
-                            <Image
-                                src="/placeholder.svg?height=300&width=500"
-                                alt="Deployment Screenshot"
-                                width={500}
-                                height={300}
-                                className="rounded"
-                            />
-                        </div>
+                        {/*<div className="flex items-center justify-center rounded-lg border border-gray-800 bg-gray-900/50 p-4">*/}
+                        {/*    <Image*/}
+                        {/*        src="/placeholder.svg?height=300&width=500"*/}
+                        {/*        alt="Deployment Screenshot"*/}
+                        {/*        width={500}*/}
+                        {/*        height={300}*/}
+                        {/*        className="rounded"*/}
+                        {/*    />*/}
+                        {/*</div>*/}
                     </div>
                 </TabsContent>
             </Tabs>
 
-            <div className="mb-16 rounded-lg border border-gray-800 bg-gray-900/50 p-8">
-                <div className="text-center">
-                    <h2 className="text-3xl font-bold">Watch DevSync in Action</h2>
-                    <p className="mx-auto mt-4 max-w-2xl text-gray-300">
-                        See how DevSync can transform your development workflow in this short demo video.
-                    </p>
-                </div>
-                <div className="mt-8 aspect-video overflow-hidden rounded-lg border border-gray-800 bg-gray-900">
-                    <div className="flex h-full items-center justify-center">
-                        <p className="text-gray-400">Video Demo Placeholder</p>
-                    </div>
-                </div>
-            </div>
+            {/*<div className="mb-16 rounded-lg border border-gray-800 bg-gray-900/50 p-8">*/}
+            {/*    <div className="text-center">*/}
+            {/*        <h2 className="text-3xl font-bold">Watch DevSync in Action</h2>*/}
+            {/*        <p className="mx-auto mt-4 max-w-2xl text-gray-300">*/}
+            {/*            See how DevSync can transform your development workflow in this short demo video.*/}
+            {/*        </p>*/}
+            {/*    </div>*/}
+            {/*    <div className="mt-8 aspect-video overflow-hidden rounded-lg border border-gray-800 bg-gray-900">*/}
+            {/*        <div className="flex h-full items-center justify-center">*/}
+            {/*            <p className="text-gray-400">Video Demo Placeholder</p>*/}
+            {/*        </div>*/}
+            {/*    </div>*/}
+            {/*</div>*/}
 
             <div className="rounded-lg border border-gray-800 bg-gradient-to-br from-gray-900 to-gray-800 p-8 text-center">
                 <h2 className="text-3xl font-bold">Ready to transform your development workflow?</h2>

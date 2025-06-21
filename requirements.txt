@@ -4,8 +4,8 @@ djangorestframework
 djangorestframework-simplejwt
 react-vite
 axios
+requests
+requests-oauthlib
+python-openid
+django-allauth
 
-
-SuperUser:
-->Username:Admin
-->Pass:Admin@123

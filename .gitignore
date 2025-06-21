@@ -387,3 +387,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+#Extra folder
+myenv
