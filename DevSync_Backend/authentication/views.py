@@ -24,8 +24,9 @@ from django.views.decorators.csrf import csrf_protect
 from django.utils.decorators import method_decorator
 from django.contrib.sessions.models import Session
 from django.utils import timezone
-from datetime import timedelta
 import time
+from datetime import datetime, timedelta
+import jwt
 #from .models import PendingUser
 
 verification_codes = {}
@@ -183,11 +184,25 @@ def login_user(request):
             return Response({"error": "User not found"}, status=404)
 
     if check_password(password, user.password):
+        payload = {
+            'user_id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'exp': datetime.utcnow() + timedelta(hours=1),  # Token expires in 1 hour
+            'iat': datetime.utcnow(),  # Issued at time
+        }
+
+        # Encode the token using a secret key
+        secret_key = settings.SECRET_KEY  # Secret key from settings.py
+        token = jwt.encode(payload, secret_key, algorithm='HS256')
+        # Store the token in the session
         return Response({
             "message": "Login successful",
             "username": user.username,
             "email": user.email,
-            "full_name": f"{user.first_name} {user.last_name}"
+            "full_name": f"{user.first_name} {user.last_name}",
+            "token": token,
+            
         }, status=200)
     else:
         return Response({"error": "Invalid credentials"}, status=400)
