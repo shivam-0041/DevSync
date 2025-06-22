@@ -8,4 +8,5 @@ requests
 requests-oauthlib
 python-openid
 django-allauth
+pyjwt
 

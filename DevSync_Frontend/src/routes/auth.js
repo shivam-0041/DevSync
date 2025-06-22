@@ -118,13 +118,15 @@ function getCurrCookie(name) {
 
 export async function loginUser(username, password) {
     try {
+        await getCsrfToken();
+
         const csrfToken = getCurrCookie('csrftoken');
 
         const response = await fetch(`${BASE_URL}login/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
+                'X-CSRFToken': csrfToken, // Use the CSRF token from the cookie
             },
             credentials: 'include', // Important for cookies (CSRF)
             body: JSON.stringify({ username, password }),
@@ -138,7 +140,14 @@ export async function loginUser(username, password) {
 
         // Read JSON only after checking if response is OK
         const data = await response.json();
+        //const res = await axios.post(`${BASE_URL}login/`, {
+        //    username,
+        //    password
+        //});
+        localStorage.setItem("access_token", data.token);
+
         return { success: true, data };
+
 
     } catch (error) {
         console.error("Login error:", error);

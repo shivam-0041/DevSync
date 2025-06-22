@@ -1,4 +1,4 @@
-import {Link} from "react-router-dom"
+import { Link, useParams, useNavigate } from "react-router-dom"
 import {
   Code,
   Settings,
@@ -27,12 +27,16 @@ import { useState, useEffect } from 'react';
 
 export default function ProfilePage() {
 
-    const [user, setUser] = useState([]);
+    const navigate = useNavigate();
+    const { username } = useParams();
+    //const loggedInUser = JSON.parse(localStorage.getItem("username"));
+
+    const [user, setUser] = useState({});
     // Fetch user profile data from the backend
     useEffect(() => {
         fetchUserProfile()
-            .then((res: { data: any }) => {
-                const data = res.data;
+            .then((data) => {
+                console.log("Fetched profile:", data);
 
                 // Map backend fields to frontend template
                 setUser({
@@ -195,7 +199,7 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center text-center">
               <Avatar className="h-40 w-40 mb-4">
                 <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{}</AvatarFallback>
               </Avatar>
               <h1 className="text-2xl font-bold">{user.name}</h1>
               <p className="text-zinc-500 dark:text-zinc-400 mb-4">@{user.username}</p>
@@ -239,21 +243,51 @@ export default function ProfilePage() {
               <CardContent className="p-4 pt-0 space-y-4">
                 <div className="flex items-center gap-2">
                   <Github className="h-4 w-4 text-zinc-500" />
-                  <a to={`https://${user.socialLinks.github}`} className="text-sm text-emerald-500 hover:underline">
-                    {user.socialLinks.github}
-                  </a>
+                    {user.socialLinks?.github && (
+                        <a
+                            href={`https://${user.socialLinks.github}`}
+                            className="text-sm text-emerald-500 hover:underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {user.socialLinks.github}
+                        </a>
+                    )}
+                  
                 </div>
                 <div className="flex items-center gap-2">
                   <Twitter className="h-4 w-4 text-zinc-500" />
-                  <a to={`https://${user.socialLinks.twitter}`} className="text-sm text-emerald-500 hover:underline">
-                    {user.socialLinks.twitter}
-                  </a>
+                    {user.socialLinks?.twitter && (
+                        <a
+                            href={
+                                user.socialLinks.twitter.startsWith("http")
+                                    ? user.socialLinks.twitter
+                                    : `https://${user.socialLinks.twitter}`
+                            }
+                            className="text-sm text-blue-500 hover:underline block"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {user.socialLinks.twitter}
+                        </a>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Linkedin className="h-4 w-4 text-zinc-500" />
-                  <a to={`https://${user.socialLinks.linkedin}`} className="text-sm text-emerald-500 hover:underline">
-                    {user.socialLinks.linkedin}
-                  </a>
+                    {user.socialLinks?.linkedin && (
+                        <a
+                            href={
+                                user.socialLinks.linkedin.startsWith("http")
+                                    ? user.socialLinks.linkedin
+                                    : `https://${user.socialLinks.linkedin}`
+                            }
+                            className="text-sm text-blue-700 hover:underline block"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {user.socialLinks.linkedin}
+                        </a>
+                    )}
                 </div>
               </CardContent>
             </Card>
@@ -264,11 +298,11 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="flex flex-wrap gap-2">
-                  {user.skills.map((skill, index) => (
-                    <Badge key={index} variant="secondary" className="bg-zinc-100 dark:bg-zinc-800">
-                      {skill}
-                    </Badge>
-                  ))}
+                    {user.skills?.map((skill, index) => (
+                        <Badge key={index} variant="secondary" className="bg-zinc-100 dark:bg-zinc-800">
+                            {skill}
+                        </Badge>
+                    ))}
                 </div>
               </CardContent>
             </Card>

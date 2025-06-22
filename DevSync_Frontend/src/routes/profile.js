@@ -18,11 +18,21 @@ export async function getCsrfToken() {
 
 export const fetchUserProfile = async () => {
     try {
+
+        const token = localStorage.getItem("access_token"); // or wherever you store it
+
+        if (!token) {
+            console.error('No token found in localStorage');
+            return null;
+        }
+
         const response = await axios.get(`${BASE_URL}profile/`, {
+            method: 'GET',
             headers: {
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
                 // Include credentials if needed
-                // 'Authorization': `Bearer ${token}`
+                
             },
             withCredentials: true  // if you're using session authentication or CSRF
         });
