@@ -10,3 +10,11 @@ python-openid
 django-allauth
 pyjwt
 
+SuperUser:
+->Username:admin2
+->Pass:admin
+
+TestUser:
+->Username:zero
+->Pass:userzero
+

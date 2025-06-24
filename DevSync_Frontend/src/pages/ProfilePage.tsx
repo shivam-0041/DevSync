@@ -36,7 +36,7 @@ export default function ProfilePage() {
     useEffect(() => {
         fetchUserProfile()
             .then((data) => {
-                console.log("Fetched profile:", data);
+                
 
                 // Map backend fields to frontend template
                 setUser({
@@ -53,11 +53,12 @@ export default function ProfilePage() {
                     following: data.following || 0,
                     repositories: data.repositories || 0,
                     contributions: data.contributions || 0,
-                    skills: data.skills || [],
+                    skills: data.skills.skill || "",
                     socialLinks: {
-                        github: data.social_links?.github || "",
-                        twitter: data.social_links?.twitter || "",
-                        linkedin: data.social_links?.linkedin || "",
+                        github: data.socialLinks?.github || "",
+                        linkedin: data.socialLinks?.linkedin || "",
+                        personal_website: data.socialLinks?.personal_website || "",
+                        twitter: data.socialLinks?.twitter || "",
                     },
                 });
             })
@@ -245,7 +246,7 @@ export default function ProfilePage() {
                   <Github className="h-4 w-4 text-zinc-500" />
                     {user.socialLinks?.github && (
                         <a
-                            href={`https://${user.socialLinks.github}`}
+                            href={user.socialLinks.github}
                             className="text-sm text-emerald-500 hover:underline"
                             target="_blank"
                             rel="noopener noreferrer"
@@ -258,13 +259,8 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2">
                   <Twitter className="h-4 w-4 text-zinc-500" />
                     {user.socialLinks?.twitter && (
-                        <a
-                            href={
-                                user.socialLinks.twitter.startsWith("http")
-                                    ? user.socialLinks.twitter
-                                    : `https://${user.socialLinks.twitter}`
-                            }
-                            className="text-sm text-blue-500 hover:underline block"
+                        <a href={user.socialLinks.twitter}
+                            className="text-sm text-emerald-500 hover:underline"
                             target="_blank"
                             rel="noopener noreferrer"
                         >
@@ -276,14 +272,10 @@ export default function ProfilePage() {
                   <Linkedin className="h-4 w-4 text-zinc-500" />
                     {user.socialLinks?.linkedin && (
                         <a
-                            href={
-                                user.socialLinks.linkedin.startsWith("http")
-                                    ? user.socialLinks.linkedin
-                                    : `https://${user.socialLinks.linkedin}`
-                            }
-                            className="text-sm text-blue-700 hover:underline block"
-                            target="_blank"
-                            rel="noopener noreferrer"
+                        href={user.socialLinks.linkedin}
+                        className="text-sm text-emerald-500 hover:underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         >
                             {user.socialLinks.linkedin}
                         </a>
@@ -298,7 +290,7 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="flex flex-wrap gap-2">
-                    {user.skills?.map((skill, index) => (
+                    {Array.isArray(user.skills) && user.skills.map((skill, index) => (
                         <Badge key={index} variant="secondary" className="bg-zinc-100 dark:bg-zinc-800">
                             {skill}
                         </Badge>

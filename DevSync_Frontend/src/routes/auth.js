@@ -116,6 +116,7 @@ function getCurrCookie(name) {
     return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : null;
 }
 
+
 export async function loginUser(username, password) {
     try {
         await getCsrfToken();
@@ -144,7 +145,8 @@ export async function loginUser(username, password) {
         //    username,
         //    password
         //});
-        localStorage.setItem("access_token", data.token);
+        localStorage.setItem("access", data.access);
+        localStorage.setItem("refresh", data.refresh);
 
         return { success: true, data };
 
