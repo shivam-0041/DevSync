@@ -1,29 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
-//import Dashboard from "./pages/Dashboard"
-//import ProjectPage from "./pages/ProjectPage"
-//import WhiteboardPage from "./pages/WhiteboardPage"
-//import ProfilePage from "./pages/ProfilePage"
-//import SearchPage from "./pages/SearchPage"
-//import CollaboratePage from "./pages/CollaboratePage"
-//import HomePage from "./pages/Landing"
-//import LoginPage from "./pages/Login"
-//import RegisterPage from "./pages/Register"
-//import ExplorePage from "./pages/ExplorePage"
-//import AccountSettings from "./pages/AccountSettings"
-//import ForgotPasswordPage from "./pages/ForgotPassword"
-//import ResetPasswordPage from "./pages/ResetPassword"
-//import AboutPage from "./pages/About"
-//import FeaturesPage from "./pages/Features"
-//import ContactPage from "./pages/Contactus"
-//import WorkflowPage from "./pages/Workflow"
-//import HowItWorksPage from "./pages/HowItWorks"
-//import ProjectSettings from "./pages/ProjectSettings"
-//import ManageCollaborators from "./pages/ManageCollaborators"
-//import UserProfile from "./pages/UserProfile"
-//import VerifyEmailPage from "./pages/VerifyEmail"
-
 import React, { lazy, Suspense } from 'react';
-
+import PrivateRoute from '../src/lib/PrivateRoute';
 
 const HomePage = lazy(() => import('./pages/Landing'));
 const LoginPage = lazy(() => import('./pages/Login'));
@@ -47,7 +24,11 @@ const AccountSettings = lazy(() => import('./pages/AccountSettings'));
 const ProjectSettings = lazy(() => import('./pages/ProjectSettings'));
 const ManageCollaborators = lazy(() => import('./pages/ManageCollaborators'));
 const UserProfile = lazy(() => import('./pages/UserProfile'));
-
+const NewRepo = lazy(() => import('./pages/NewRepo'));
+const NewIssue = lazy(() => import('./pages/NewIssue'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const NewPullRequest = lazy(() => import('./pages/NewPullReq'));
+const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 
 function App() {
     return (
@@ -66,13 +47,18 @@ function App() {
                     <Route path="/workflow" element={<WorkflowPage />} />
                     <Route path="/how-it-works" element={<HowItWorksPage />} />
                     <Route path="/dashboard/:username" element={<Dashboard />} />
+                    <Route path="/new-repo" element={<NewRepo />} />
+                    <Route path="/new-issue" element={<NewIssue />} />
+                    <Route path="/new-pull-request" element={<NewPullRequest />} />
+                    <Route path="/notifications" element={<Notifications />} />
                     <Route path="/project/:id" element={<ProjectPage />} />
                     <Route path="/project/:id/whiteboard" element={<WhiteboardPage />} />
-                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/profile/:username" element={<ProfilePage />} />
                     <Route path="/search" element={<SearchPage />} />
                     <Route path="/explore" element={<ExplorePage />} />
+                    <Route path="/devsync/:username" element={<PublicProfile />} />
                     <Route path="/collaborate/:id" element={<CollaboratePage />} />
-                    <Route path="/account/settings" element={<AccountSettings />} />
+                    <Route path="/account/settings/:username" element={<AccountSettings />} />
                     <Route path="/project/:id/settings" element={<ProjectSettings />} />
                     <Route path="/project/:id/manage-collaborators" element={<ManageCollaborators />} />
                     <Route path="/user/:id" element={<UserProfile />} />

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Code, User, Shield, Bell, Globe, Github, Twitter, Linkedin, Trash2, LogOut, Check } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
@@ -43,13 +43,23 @@ export default function AccountSettings() {
         }, 1000)
     }
 
+    const navigate = useNavigate();
+    const handleSignOut = () => {
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
+        if (setUser) {
+            setUser(null);
+        }
+        navigate("/");
+    }
+
     return (
         <div className="min-h-screen bg-zinc-950">
             <header className="bg-zinc-900 border-b border-zinc-800 sticky top-0 z-10">
                 <div className="container mx-auto px-4 py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-10">
-                            <Link to="/dashboard" className="flex items-center gap-2">
+                            <Link to="/dashboard/:username" className="flex items-center gap-2">
                                 <Code className="h-6 w-6 text-emerald-400" />
                                 <span className="font-bold text-white">DevSync</span>
                             </Link>
@@ -60,7 +70,7 @@ export default function AccountSettings() {
                                     Dashboard
                                 </Button>
                             </Link>
-                            <Link to="/profile">
+                            <Link to="/profile/:username">
                                 <Avatar>
                                     <AvatarImage src={profileImage || "/placeholder.svg"} alt="User" />
                                     <AvatarFallback className="bg-zinc-700 text-zinc-300">JD</AvatarFallback>
@@ -679,7 +689,9 @@ export default function AccountSettings() {
                                     <h3 className="text-lg font-medium text-red-400">Sign Out</h3>
                                     <p className="text-sm text-zinc-400">Sign out of your account on this device</p>
                                 </div>
-                                <Button variant="outline" className="border-zinc-700 text-red-400 hover:text-red-300 hover:bg-zinc-800">
+                                <Button variant="outline" className="border-zinc-700 text-red-400 hover:text-red-300 hover:bg-zinc-800"
+                                    onClick={handleSignOut}
+                                >
                                     <LogOut className="h-4 w-4 mr-2" /> Sign Out
                                 </Button>
                             </div>

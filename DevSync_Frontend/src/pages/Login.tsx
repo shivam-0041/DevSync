@@ -27,7 +27,7 @@ export default function LoginPage() {
         const response = await loginUser(username, password);
         if (response.success) {
             navigate(`/dashboard/${loggedInUser.username}`);
-            //localStorage.setItem("user", response.data.user.username);
+            localStorage.setItem("user", response.data.user.username);
         } else {
             setError(response.message || 'Login failed.');
         }
@@ -52,6 +52,13 @@ export default function LoginPage() {
                         <CardTitle className="text-zinc-100">Sign in</CardTitle>
                         <CardDescription className="text-zinc-400">Enter your credentials to access your account</CardDescription>
                     </CardHeader>
+
+                    {error && (
+                        <h1 className="text-red-600 text-sm ml-5">
+                            {error}
+                        </h1>
+                    )}
+
                     <CardContent>
                         <form onSubmit={handleSubmit}>
                             <div className="space-y-4">

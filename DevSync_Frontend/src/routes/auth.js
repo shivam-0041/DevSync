@@ -1,4 +1,7 @@
 import axios from "axios";
+import { useEffect } from "react";
+
+
 
 // Set base URL for your backend
 const BASE_URL = "http://localhost:8000/api/auth/";
@@ -41,11 +44,12 @@ export async function handleRegisterSubmit(formData) {
         });
 
         const data = await response.json();
+        //console.log(data)
 
         if (response.ok) {
             return { success: true, message: "Account created successfully!", data };
         } else {
-            return { success: false, message: data.message || "Registration failed." };
+            return { success: false, message: data.error || "Something went wrong!"};
         }
     } catch (error) {
         console.error("Registration error:", error);
@@ -135,8 +139,8 @@ export async function loginUser(username, password) {
 
         if (!response.ok) {
             const errorText = await response.text();  // Only read the body once
-            console.error("Raw error response:", errorText);
-            return { success: false, message: "Login failed." };
+            //console.error("Raw error response:", errorText);
+            return { success: false, message: "Username or Password Incorrect" };
         }
 
         // Read JSON only after checking if response is OK
@@ -157,6 +161,18 @@ export async function loginUser(username, password) {
     }
 
 }
+
+
+export async function logoutUser(){
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    if (setUser) {
+        setUser(null);
+    }
+    
+}
+
+
 export async function verifyEmailCode(email, code) {
     try {
         // ? Ensure the email and code are sent to the backend for validation
@@ -180,3 +196,6 @@ export async function verifyEmailCode(email, code) {
         return { success: false, message: "Server error" };
     }
 }
+
+
+   

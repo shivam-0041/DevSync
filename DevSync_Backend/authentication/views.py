@@ -10,7 +10,8 @@ from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from rest_framework import status, generics
 from rest_framework.response import Response
-from .serializers import RegisteredUserSerializer #, PendingUserSerializer
+from .serializers import RegisteredUserSerializer
+from rest_framework.exceptions import ValidationError#, PendingUserSerializer
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.http import JsonResponse
 from django.contrib.auth.hashers import make_password
@@ -41,18 +42,18 @@ def send_mail_page(request,name,email):
         address = request.POST.get('email')
         subject = "DevSync Email Verification code is: ",code
         message = f"""
-                    Hi {name},
+Hi {name},
 
-                    Thank you for registering with DevSync!
+Thank you for registering with DevSync!
 
-                    To complete your sign-up, please use the verification code below:
+To complete your sign-up, please use the verification code below:
 
-                    Your verification code: {code}
+Your verification code: {code}
 
-                    This code will expire in 10 minutes. If you didn't request this, please ignore this email.
+This code will expire in 10 minutes. If you didn't request this, please ignore this email.
 
-                    - The DevSync Team
-                    """
+    - The DevSync Team
+"""
 
         if address and subject and message:
             try:
@@ -98,22 +99,33 @@ class RegisterUserView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         data = request.data.copy()
-        if "password" in data:
-            data["password"] = make_password(data["password"])
+        try:
+            if "password" in data:
+                data["password"] = make_password(data["password"])
 
-            serializer = self.get_serializer(data=data)
-            if serializer.is_valid():
-                serializer.save()
-                # Generate a verification code
-                send_mail_page(request, data['first_name'], data['email']);
-                print("code sent")
-                return Response(
-                    {"message": "User created successfully", "user": serializer.data},
-                    status=status.HTTP_201_CREATED
-                )
-            else:
-                return Response({"error": "Verification code is incorrect"}, status=400)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                serializer = self.get_serializer(data=data)
+                if serializer.is_valid():
+                    serializer.save()
+                    # Generate a verification code
+                    send_mail_page(request, data['first_name'], data['email']);
+                    #print("code sent")
+                    return Response(
+                        {"message": "User created successfully", "user": serializer.data},
+                        status=status.HTTP_201_CREATED
+                    )
+                else:
+                    error_data = serializer.errors
+                    if isinstance(error_data, dict):
+                        first_key = next(iter(error_data))
+                        first_error = error_data[first_key][0]
+                        return Response({"error": str(first_error)}, status=400)
+                    return Response({"error": "Invalid data"}, status=400)
+                    #return Response(serializer.errors, status=400)
+        except ValidationError as e:
+            print(e.detail)
+            return Response({"error": str(e.detail)}, status=status.HTTP_400_BAD_REQUEST)
+            #return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        #return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
@@ -206,3 +218,5 @@ def login_user(request):
 
 
 
+def token_refresh(request):
+    pass

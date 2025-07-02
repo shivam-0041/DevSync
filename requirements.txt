@@ -9,6 +9,8 @@ requests-oauthlib
 python-openid
 django-allauth
 pyjwt
+djangorestframework_simplejwt
+
 
 SuperUser:
 ->Username:admin2

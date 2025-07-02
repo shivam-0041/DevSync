@@ -41,7 +41,7 @@ export default function RegisterPage() {
             navigate('/login');
         } else {
             setError(result.message);
-            alert(result.message);
+            //alert(result.message);
         }
     };
 
@@ -78,6 +78,13 @@ export default function RegisterPage() {
                         <CardDescription className="text-zinc-400">Enter your information to create an account</CardDescription>
                     </CardHeader>
                     <CardContent>
+
+                        {error && (
+                            <h1 className="text-red-500 text-sm mt-(-2) mb-2">
+                                {error}
+                            </h1>
+                        )}
+
                         <form onSubmit={handleSubmit}>
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">

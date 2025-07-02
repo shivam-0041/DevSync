@@ -116,7 +116,7 @@ export default function LandingPage() {
                         className="text-xl text-zinc-400 mb-12 max-w-3xl mx-auto leading-relaxed"
                     >
                         DevSync is the modern platform for developers to collaborate seamlessly. Host code, track tasks, visualize
-                        ideas, and communicate—all in one unified workspace.
+                        ideas, and communicate-all in one unified workspace.
                     </motion.p>
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
