@@ -30,7 +30,7 @@ class Project(models.Model):
         ('public', 'Public'),
     ]
 
-    project_id = models.CharField(max_length=20, unique=True, editable=False, default=generate_project_id())
+    project_id = models.CharField(max_length=20, unique=True, editable=False, default=generate_project_id)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_projects')
@@ -39,6 +39,16 @@ class Project(models.Model):
     logo = models.ImageField(upload_to='project_logos/', blank=True, null=True)
     languages = models.CharField(max_length=200, blank=True, editable=False)
     discussions_enabled = models.BooleanField(default=True)
+    stars = models.IntegerField(default=0)
+    watchers = models.IntegerField(default=0)
+    forks = models.IntegerField(default=0)
+    issues = models.IntegerField(default=0)
+    pull_requests_count = models.IntegerField(default=0)
+    readme = models.TextField(blank=True, null=True)
+    progress = models.IntegerField(default=0)
+    template = models.CharField(max_length=100, blank=True, null=True)
+    gitignore = models.CharField(max_length=100, blank=True, null=True)
+    license = models.CharField(max_length=100, blank=True, null=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='private')
@@ -48,6 +58,12 @@ class Project(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    issues_enabled = models.BooleanField(default=True)
+    wiki_enabled = models.BooleanField(default=False)
+    boards_enabled = models.BooleanField(default=False)
+    discussions_enabled = models.BooleanField(default=False)
+    auto_init = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -109,20 +125,6 @@ class DiscussionThread(models.Model):
     def __str__(self):
         return self.title
 
-
-# ============================
-# Comment Model
-# ============================
-class Comment(models.Model):
-    thread = models.ForeignKey(DiscussionThread, on_delete=models.CASCADE, related_name='comments')
-    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    content = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Comment by {self.author} on {self.thread.title}"
-
-
 # ============================
 # Code File Model
 # ============================
@@ -166,6 +168,8 @@ class PullRequest(models.Model):
     message = models.TextField(blank=True)
     status = models.CharField(max_length=10, choices=[('open', 'Open'), ('merged', 'Merged'), ('rejected', 'Rejected')], default='open')
     created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return f"{self.user} - {self.project} ({self.role})"
 
 
 # ============================
@@ -188,6 +192,8 @@ class ProjectInvite(models.Model):
     invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     status = models.CharField(max_length=10, choices=[('pending', 'Pending'), ('accepted', 'Accepted'), ('declined', 'Declined')], default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return f"{self.user} - {self.project} ({self.role})"
 
 
 # ============================
@@ -199,6 +205,8 @@ class Tag(models.Model):
 class ProjectTag(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tag_links')
     tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
+    def __str__(self):
+        return f"{self.user} - {self.project} ({self.role})"
 
 
 # ============================
@@ -211,3 +219,39 @@ class Notification(models.Model):
     message = models.CharField(max_length=255)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+class UserProjectRole(models.Model):
+    ROLE_CHOICES = [
+        ("owner", "Owner"),
+        ("collaborator", "Collaborator"),
+        ("contributor", "Contributor")
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    role = models.CharField(max_length=15, choices=ROLE_CHOICES)
+    branch_name = models.CharField(max_length=255, blank=True, null=True)  # For collaborators only
+
+    class Meta:
+        unique_together = ("user", "project")
+    def __str__(self):
+        return f"{self.user} - {self.project} ({self.role})"
+
+
+class LanguageUsage(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="languages_usage")
+    language = models.CharField(max_length=50)
+    percentage = models.FloatField()
+    def __str__(self):
+        return f"{self.user} - {self.project} ({self.role})"
+
+# ---- Chat/Whiteboard models for repositories ----
+class Chat(models.Model):
+    repository = models.OneToOneField('Project', on_delete=models.CASCADE, related_name='chat')
+    created_at = models.DateTimeField(auto_now_add=True)
+    participants = models.ManyToManyField(User)
+
+class Whiteboard(models.Model):
+    repository = models.OneToOneField('Project', on_delete=models.CASCADE, related_name='whiteboard')
+    data = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+

@@ -64,3 +64,46 @@ class ProfileSerializer(serializers.ModelSerializer):
             "linkedin": obj.linkedin,
             "personal_website": obj.personal_website
         }
+
+
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(write_only=True, required=False)
+    username = serializers.CharField(source='user.username', required=False)
+    email = serializers.EmailField(source='user.email', required=False)
+
+    class Meta:
+        model = Profile
+        fields = [
+            "avatar", "full_name", "username", "email", "location",
+            "bio", "social_links", "skills", "company"
+        ]
+
+    def update(self, instance, validated_data):
+        # Extract user data and profile data
+        user_data = validated_data.pop('user', {})
+        full_name = validated_data.pop('full_name', None)
+
+        user = instance.user
+
+        # Update username and email
+        if 'username' in user_data:
+            user.username = user_data['username']
+        if 'email' in user_data:
+            user.email = user_data['email']
+
+        # Handle full name
+        if full_name:
+            parts = full_name.strip().split(" ", 1)
+            user.first_name = parts[0]
+            user.last_name = parts[1] if len(parts) > 1 else ""
+
+        user.save()
+
+        # Update Profile model fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        return instance

@@ -11,7 +11,7 @@ import { Badge } from "../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Plus, Users, Tag, FileText, ArrowRight, Lightbulb, Bug, Zap } from "lucide-react"
 import { Link } from "react-router-dom"
-import {AuthGuard} from "../components/auth-guard"
+import {AuthGuard} from "../components/auth_guard"
 
 interface FormData {
   title: string
@@ -191,7 +191,6 @@ Add any other context, mockups, or examples here.`,
   }, [])
 
   return (
-    <AuthGuard>
       <div className="container mx-auto px-4 py-16">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">
@@ -441,7 +440,6 @@ Add any other context, mockups, or examples here.`,
           </div>
         </div>
       </div>
-    </AuthGuard>
   )
 }
 

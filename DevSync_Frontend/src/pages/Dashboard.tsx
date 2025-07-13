@@ -34,27 +34,48 @@ import { QuickActions, QuickActionsHeader } from "../components/quick-actions"
 import { TeamMemberList } from "../components/team-member-list"
 import { DevToolsSidebar } from "../components/dev-tools-sidebar"
 import ProjectPage from "./ProjectPage"
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useAuth } from "../components/contexts/auth-context";
+import { fetchUserProfile } from '../routes/profile';
 
 const Dashboard = () => {
+    const { user, isAuthenticated, isLoading } = useAuth();
     const navigate = useNavigate();
     const { username } = useParams();
-    const loggedInUser = JSON.parse(localStorage.getItem("username")); // Assuming "user" object is stored
+    const loggedInUser = JSON.parse(localStorage.getItem("user"))
+    const [usser, setUser] = useState({});
+    useEffect(() => {
+        if (!isAuthenticated || !user) {
+            navigate("/login");
+        }
 
-    //useEffect(() => {
-    //    if (!loggedInUser) {
-    //        navigate("/login");
-    //    } else if (loggedInUser.username !== username) {
-    //        navigate(`/dashboard/${loggedInUser.username}`);
-    //    }
-    //}, [loggedInUser, username, navigate]);
-
-    //if (!loggedInUser || loggedInUser.username !== username) {
-    //    return null; // Render nothing while redirecting
-    //}
+        if (username && user?.username !== username) {
+            navigate(`/dashboard/${user.username}`);
+        }
 
 
-    
+    }, [isAuthenticated, isLoading, user, username, navigate]);
+
+    if (isLoading || !user || !isAuthenticated) {
+        return <div className="text-white">Loading...</div>;
+    }
+
+    useEffect(() => {
+        fetchUserProfile()
+            .then((data) => {
+
+
+                // Map backend fields to frontend template
+                setUser({
+                    name: data.name,
+                    username: data.username,
+                    avatar: data.avatar,
+                });
+            })
+            .catch((err: any) => console.error(err));
+    }, []);
+
+
   // Sample tasks data
   const tasks = [
     {
@@ -219,15 +240,15 @@ const Dashboard = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
                </DropdownMenu>
-               <Link to="/account/settings">
+               <Link to={`/${loggedInUser.username}/account/settings`}>
                   <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-300">
                     <Settings className="h-5 w-5" />
                   </Button>
                 </Link>
-              <Link to="/profile">
+               <Link to={`/profile/${loggedInUser.username}`}>
                 <Avatar>
-                  <AvatarImage src="/placeholder.svg?height=40&width=40" alt="User" />
-                  <AvatarFallback className="bg-zinc-700 text-zinc-300">JD</AvatarFallback>
+                    <AvatarImage src={usser.avatar || "/placeholder.svg"} alt={usser.name} />
+                    <AvatarFallback>{ }</AvatarFallback>
                 </Avatar>
               </Link>
             </div>

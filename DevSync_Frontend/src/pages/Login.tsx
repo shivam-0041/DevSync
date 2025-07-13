@@ -8,7 +8,9 @@ import { Link } from "react-router-dom"
 import { loginUser } from '../routes/auth';
 import React,{ useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../components/contexts/auth-context";
 export default function LoginPage() {
+    const { login } = useAuth()
     const navigate = useNavigate();
     const [formData, setFormData] = useState({ username: '', password: '' });
     const [error, setError] = useState('');
@@ -18,18 +20,15 @@ export default function LoginPage() {
     };
     // Handle form submission
     //console.log(formData);
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e : React.FormEvent) => {
         
         e.preventDefault();
         const { username, password } = formData;
-        // Call loginUser with the destructured username and password
-        const loggedInUser = { username, password };
-        const response = await loginUser(username, password);
+        const response = await login(username, password);
         if (response.success) {
-            navigate(`/dashboard/${loggedInUser.username}`);
-            localStorage.setItem("user", response.data.user.username);
+            navigate(`/dashboard/${response.user}`);
         } else {
-            setError(response.message || 'Login failed.');
+            setError('Login failed.');
         }
     };
 

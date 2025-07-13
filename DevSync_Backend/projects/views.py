@@ -1,51 +1,48 @@
+from rest_framework import generics, permissions
+from .models import Project
+from .serializers import (
+    ProjectCreateSerializer,
+    ProjectListSerializer,
+    ProjectDetailSerializer
+)
+from rest_framework.permissions import IsAuthenticated
 
-'''from rest_framework import viewsets, permissions
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from .models import Chat, Whiteboard, Project, has_access
-from .serializers import ChatSerializer, WhiteboardSerializer, ProjectSerializer
-from .permissions import IsOwnerOrCollaborator
-
-class ProjectViewSet(viewsets.ModelViewSet):
+class CreateProjectView(generics.CreateAPIView):
     queryset = Project.objects.all()
-    serializer_class = ProjectSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrCollaborator]
+    serializer_class = ProjectCreateSerializer
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        serializer.save(created_by=self.request.user)
 
-class ChatViewSet(viewsets.ModelViewSet):
-    queryset = Chat.objects.all()
-    serializer_class = ChatSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrCollaborator]
+class ProjectListView(generics.ListAPIView):
+    serializer_class = ProjectListSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Chat.objects.filter(participants=self.request.user)
+        user = self.request.user
+        return Project.objects.filter(created_by=user) | Project.objects.filter(members=user)
 
-    def perform_create(self, serializer):
-        project_id = self.request.data.get('repository')
-        repository = Project.objects.get(id=project_id)
-        if has_access(self.request.user, repository):
-            chat = serializer.save(repository=repository)
-            chat.participants.add(self.request.user)
-        else:
-            raise PermissionDenied("You don't have access to this chat")
-
-class WhiteboardViewSet(viewsets.ModelViewSet):
-    queryset = Whiteboard.objects.all()
-    serializer_class = WhiteboardSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrCollaborator]
+class ProjectDetailView(generics.RetrieveAPIView):
+    serializer_class = ProjectDetailSerializer
+    lookup_field = 'project_id'
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Whiteboard.objects.filter(repository__userprojectrole__user=self.request.user)
+        user = self.request.user
+        return Project.objects.filter(created_by=user) | Project.objects.filter(members=user)
 
-    def perform_create(self, serializer):
-        project_id = self.request.data.get('repository')
-        repository = Project.objects.get(id=project_id)
-        if has_access(self.request.user, repository):
-            serializer.save(repository=repository)
-        else:
-            raise PermissionDenied("You don't have access to this whiteboard")
+class ProjectUpdateView(generics.UpdateAPIView):
+    serializer_class = ProjectCreateSerializer  # reuse same as creation
+    lookup_field = 'project_id'
+    permission_classes = [IsAuthenticated]
 
-'''
+    def get_queryset(self):
+        return Project.objects.filter(created_by=self.request.user)
+
+class ProjectDeleteView(generics.DestroyAPIView):
+    lookup_field = 'project_id'
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Project.objects.filter(created_by=self.request.user)

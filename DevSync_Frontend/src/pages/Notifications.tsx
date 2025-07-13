@@ -235,7 +235,7 @@ const NotificationsPage: React.FC = () => {
     ))
 
     return (
-        <AuthGuard>
+        
             <div className="container mx-auto px-4 py-16">
                 <div className="mb-16 text-center">
                     <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
@@ -413,7 +413,7 @@ const NotificationsPage: React.FC = () => {
                     </TabsContent>
                 </Tabs>
             </div>
-        </AuthGuard>
+        
     )
 }
 

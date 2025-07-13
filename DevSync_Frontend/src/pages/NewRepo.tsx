@@ -9,9 +9,8 @@ import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Switch } from "../components/ui/switch"
 import { Lock, Globe, Users, FileText, ArrowRight, AlertCircle } from "lucide-react"
-import {Link} from "react-router-dom"
-import AuthGuard from "../components/auth-guard"
-
+import { Link,useNavigate } from "react-router-dom"
+import { createProject } from '../routes/projects'
 interface FormData {
     name: string
     description: string
@@ -32,6 +31,7 @@ interface FormErrors {
 }
 
 const NewRepositoryPage: React.FC = () => {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState<FormData>({
         name: "",
         description: "",
@@ -74,20 +74,36 @@ const NewRepositoryPage: React.FC = () => {
 
     const handleSubmit = useCallback(
         async (e: React.FormEvent) => {
-            e.preventDefault()
+            e.preventDefault();
 
-            if (!validateForm()) return
+            if (!validateForm()) return;
 
-            setIsCreating(true)
+            setIsCreating(true);
 
-            // Simulate API call
-            setTimeout(() => {
-                setIsCreating(false)
-                // Redirect to the new repository
-                window.location.href = `/repository/${formData.name}`
-            }, 2000)
+            const accessToken = localStorage.getItem("access");
+            if (!accessToken) {
+                setIsCreating(false);
+                alert("Access token missing. Please login again.");
+                return;
+            }
+
+            try {
+                const response = await createProject(formData, accessToken);
+
+                if (response.success) {
+                    // You can route using navigate or window.location
+                    window.location.href = `/dashboard/${response.project.slug}`;
+                } else {
+                    alert("Failed to create project: " + response.error);
+                }
+            } catch (error) {
+                console.error("Unexpected error creating project:", error);
+                alert("Unexpected error occurred. Please try again.");
+            } finally {
+                setIsCreating(false);
+            }
         },
-        [validateForm, formData.name],
+        [validateForm, formData]
     )
 
     const handleVisibilityChange = useCallback(
@@ -183,7 +199,7 @@ const NewRepositoryPage: React.FC = () => {
     ))
 
     return (
-        //<AuthGuard>
+        
             <div className="container mx-auto px-4 py-16">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold tracking-tight">
@@ -422,7 +438,7 @@ const NewRepositoryPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-        //</AuthGuard>
+        
     )
 }
 

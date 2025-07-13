@@ -1,34 +1,31 @@
-# devsync/serializers.py
 from rest_framework import serializers
-'''
-from django.contrib.auth.models import User
-from .models import (
-    Project, UserProjectRole, Branch, PullRequest, Task, Commit,
-    Activity, LanguageUsage, CodeFile, Chat, Whiteboard
-)
+from .models import Project
 
-class UserSerializer(serializers.ModelSerializer):
+class ProjectCreateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
-        fields = ['id', 'username', 'email']
+        model = Project
+        fields = [
+            'name', 'description', 'visibility','template' ,'gitignore', 'license',
+            'readme', 'issues_enabled', 'wiki_enabled', 'boards_enabled',
+            'discussions_enabled', 'auto_init','logo',
+        ]
 
-class ChatSerializer(serializers.ModelSerializer):
-    participants = UserSerializer(many=True, read_only=True)
+    def create(self, validated_data):
+        user = self.context['request'].user
+        project = Project.objects.create(created_by=user, **validated_data)
+        project.members.add(user)
+        return project
+
+class ProjectListSerializer(serializers.ModelSerializer):
+    created_by = serializers.StringRelatedField()
 
     class Meta:
-        model = Chat
-        fields = ['id', 'repository', 'created_at', 'participants']
+        model = Project
+        fields = ['project_id', 'name', 'slug', 'visibility', 'created_by', 'created_at', 'logo']
 
-class WhiteboardSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Whiteboard
-        fields = ['id', 'repository', 'data', 'updated_at']
-
-class ProjectSerializer(serializers.ModelSerializer):
-    owner = UserSerializer(read_only=True)
+class ProjectDetailSerializer(serializers.ModelSerializer):
+    created_by = serializers.StringRelatedField()
 
     class Meta:
         model = Project
         fields = '__all__'
-
-'''

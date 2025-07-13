@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import { Badge } from "../components/ui/badge"
 import { GitBranch, GitCommit, ArrowRight, Plus, Minus, FileText, Users, CheckCircle2 } from "lucide-react"
 import {Link} from "react-router-dom"
-import AuthGuard from "../components/auth-guard"
+import AuthGuard from "../components/auth_guard"
 
 interface FormData {
     title: string
@@ -243,7 +243,6 @@ const NewPullRequestPage: React.FC = () => {
     ))
 
     return (
-        <AuthGuard>
             <div className="container mx-auto px-4 py-16">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold tracking-tight">
@@ -481,7 +480,6 @@ const NewPullRequestPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-        </AuthGuard>
     )
 }
 

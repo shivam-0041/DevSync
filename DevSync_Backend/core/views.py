@@ -1,4 +1,4 @@
-from rest_framework import generics, permissions
+﻿from rest_framework import generics, permissions
 from .models import Profile
 from .serializers import ProfileSerializer
 from django.contrib.auth import get_user_model
@@ -7,6 +7,9 @@ from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.generics import RetrieveUpdateAPIView
+from .serializers import ProfileUpdateSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
 User = get_user_model()
 
 
@@ -44,3 +47,13 @@ class UserProfileDetailView(APIView):
 #         return None  # Invalid token
 # You can use this helper function to verify and extract data from the token (e.g., user ID) in your protected views.
 
+
+
+
+class ProfileSettingsView(RetrieveUpdateAPIView):
+    serializer_class = ProfileUpdateSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]  # ✅ Necessary for file uploads
+
+    def get_object(self):
+        return self.request.user.profile

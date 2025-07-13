@@ -25,7 +25,6 @@ from .models import (
     Project,
     Branch,
     DiscussionThread,
-    Comment,
     CodeFile,
 )
 
@@ -45,9 +44,6 @@ class BranchAdmin(admin.ModelAdmin):
 class DiscussionThreadAdmin(admin.ModelAdmin):
     list_display = ('title', 'project', 'created_by', 'created_at')
 
-@admin.register(Comment)
-class CommentAdmin(admin.ModelAdmin):
-    list_display = ('author', 'thread', 'created_at')
 
 @admin.register(CodeFile)
 class CodeFileAdmin(admin.ModelAdmin):

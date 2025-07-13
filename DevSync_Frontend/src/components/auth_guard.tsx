@@ -2,16 +2,17 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
-import { useNavigate, useLocation, Link } from "react-router-dom"
+import { useNavigate, useLocation, Link, Outlet} from "react-router-dom"
 import { useAuth } from "../components/contexts/auth-context"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 
-interface AuthGuardProps {
-    children: React.ReactNode
-}
+//interface AuthGuardProps {
+//    children: React.ReactNode
+//}
 
-const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
+//const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
+const AuthGuard: React.FC = () => {
     const { isAuthenticated, isLoading } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
@@ -22,7 +23,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
             setShouldRedirect(true)
             // Add a small delay to show the auth prompt before redirecting
             const timer = setTimeout(() => {
-                navigate(`/signin?redirect=${encodeURIComponent(location.pathname)}`)
+                navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)
             }, 3000)
 
             return () => clearTimeout(timer)
@@ -47,7 +48,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex flex-col gap-3">
-                            <Link to={`/signin?redirect=${encodeURIComponent(location.pathname)}`}>
+                            <Link to={`/login?redirect=${encodeURIComponent(location.pathname)}`}>
                                 <Button className="w-full bg-emerald-500 text-black hover:bg-emerald-600">Sign In</Button>
                             </Link>
                             <Link to="/signup">
@@ -65,7 +66,38 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
         )
     }
 
-    return <>{children}</>
+    return <Outlet />
 }
 
 export default AuthGuard
+
+
+
+
+//const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
+//    const { isAuthenticated, isLoading } = useAuth()
+//    const navigate = useNavigate()
+//    const location = useLocation()
+
+//    useEffect(() => {
+//        if (!isLoading && !isAuthenticated) {
+//            navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`)
+//        }
+//    }, [isAuthenticated, isLoading, navigate, location.pathname])
+
+//    if (isLoading) {
+//        return (
+//            <div className="min-h-screen bg-black text-white flex items-center justify-center">
+//                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+//            </div>
+//        )
+//    }
+
+//    if (!isAuthenticated) {
+//        return null // already redirected
+//    }
+
+//    return <>{children}</>
+//}
+
+//export default AuthGuard

@@ -27,7 +27,7 @@ import { Code } from "lucide-react"
 import { DevToolsSidebar } from "../components/dev-tools-sidebar"
 
 const UserProfile = () => {
-    const { username } = useParams()
+    //const { username } = useParams()
     const [isFollowing, setIsFollowing] = useState(false)
 
     // Mock user data

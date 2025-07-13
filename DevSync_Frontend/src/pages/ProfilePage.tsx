@@ -178,12 +178,12 @@ export default function ProfilePage() {
               <span className="font-bold">DevSync</span>
             </Link>
             <div className="flex items-center gap-2">
-                <Link to="/account/settings">
+                <Link to={`/${user.username}/account/settings`}>
                   <Button variant="outline" size="sm">
                     <Settings className="h-4 w-4 mr-1" /> Settings
                   </Button>
                 </Link>
-              <Link to="/dashboard">
+                <Link to={`/dashboard/${user.username}`}>
                 <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600">
                   Dashboard
                 </Button>

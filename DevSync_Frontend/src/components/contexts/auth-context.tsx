@@ -4,19 +4,41 @@ import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 
+
+const BASE_URL = "http://localhost:8000/api/auth/";
+
+async function getCsrfToken() {
+
+    const response = await fetch(`${BASE_URL}csrf/`, {
+        method: "GET",
+        credentials: "include",  // Include cookies (CSRF token is in the cookie)
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to fetch CSRF token");
+    }
+}
+
+
+function getCurrCookie(name) {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith(name + '='));
+    return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : null;
+}
 interface User {
     id: string
     name: string
     email: string
     username: string
-    avatar?: string
+    avatar_url: string
 }
 
 interface AuthContextType {
     user: User | null
     isAuthenticated: boolean
     isLoading: boolean
-    login: (email: string, password: string) => Promise<boolean>
+    login: (username: string, password: string) => Promise<{ success: boolean, user?: User }>
     logout: () => void
 }
 
@@ -30,39 +52,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         // Check if user is logged in on mount
         const savedUser = localStorage.getItem("user")
-        if (savedUser) {
-            setUser(JSON.parse(savedUser))
+        try {
+            if (savedUser) {
+                const parsed = JSON.parse(savedUser)
+
+                // Optional: validate structure (basic check)
+                if (parsed && parsed.username && parsed.email) {
+                    setUser(parsed)
+                } else {
+                    console.warn("Malformed user object:", parsed)
+                    localStorage.removeItem("user")
+                }
+            }
+        } catch (err) {
+            console.error("Failed to parse user from localStorage:", savedUser)
+            localStorage.removeItem("user")  // Clean up bad data
         }
         setIsLoading(false)
     }, [])
 
-    const login = async (email: string, password: string): Promise<boolean> => {
+    const login = async (username: string, password: string): Promise<{ success: boolean, user?: User }> => {
         try {
-            // Simulate API call - in real app, this would be an actual API request
-            await new Promise((resolve) => setTimeout(resolve, 1000))
 
-            // Mock user data - in real app, this would come from the API
-            const mockUser: User = {
-                id: "1",
-                name: "John Doe",
-                email: email,
-                username: "johndoe",
-                avatar: "/placeholder.svg?height=40&width=40",
+            await getCsrfToken();
+
+            const csrfToken = getCurrCookie('csrftoken');
+
+            const response = await fetch(`${BASE_URL}login/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken, // Use the CSRF token from the cookie
+                },
+                credentials: 'include', // Important for cookies (CSRF)
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (!response.ok) {
+                console.error("Login failed")
+                return { success: false };
             }
+            // Read JSON only after checking if response is OK
+            const data = await response.json();
+            localStorage.setItem("access", data.access);
+            localStorage.setItem("refresh", data.refresh);
 
-            setUser(mockUser)
-            localStorage.setItem("user", JSON.stringify(mockUser))
-            return true
+            setUser(data);
+            localStorage.setItem("user", JSON.stringify(data));
+
+            return { success: true, user: data.username };
+
+
         } catch (error) {
-            console.error("Login failed:", error)
-            return false
+
+            console.error("Login error:", error);
+            return { success: false };
         }
+         
     }
 
     const logout = () => {
-        setUser(null)
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
         localStorage.removeItem("user")
-        navigate("/")
+        if (setUser) {
+            setUser(null);
+        }
+        navigate("/login");
     }
 
     const value = {

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Code, User, Shield, Bell, Globe, Github, Twitter, Linkedin, Trash2, LogOut, Check } from "lucide-react"
 import { Button } from "../components/ui/button"
@@ -16,40 +16,91 @@ import { Label } from "../components/ui/label"
 import { Separator } from "../components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Badge } from "../components/ui/badge"
-
+import { fetchUserProfile, updateUserProfile } from '../routes/profile'
 export default function AccountSettings() {
     const [profileImage, setProfileImage] = useState<string>("/placeholder.svg?height=200&width=200")
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
 
+    const [formData, setFormData] = useState<any>({
+        avatar: null,
+        name: "",
+        username: "",
+        email: "",
+        location: "",
+        bio: "",
+        github: "",
+        twitter: "",
+        linkedin: "",
+        personal_website: "",
+        skills: "",
+        company: "",
+    });
+
+    useEffect(() => {
+        const loadProfile = async () => {
+            const data = await fetchUserProfile();
+            if (data) {
+                if (data?.avatar) {
+                    setProfileImage(data.avatar);
+                }
+                console.log("Profile data loaded:", data);
+                setFormData({
+                    ...formData,
+                    ...data,
+                });
+            }
+        };
+        loadProfile();
+    }, []);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData((prev: any) => ({ ...prev, [name]: value }));
+    };
+
+
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
+        const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader()
+            const reader = new FileReader();
             reader.onload = (e) => {
                 if (e.target?.result) {
-                    setProfileImage(e.target.result as string)
+                    setProfileImage(e.target.result as string);
                 }
-            }
-            reader.readAsDataURL(file)
+            };
+            reader.readAsDataURL(file);
         }
-    }
+    };
 
-    const handleSave = () => {
-        setSaveStatus("saving")
-        // Simulate API call
-        setTimeout(() => {
-            setSaveStatus("saved")
-            setTimeout(() => setSaveStatus("idle"), 2000)
-        }, 1000)
-    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        const payload = new FormData();
+        for (const key in formData) {
+            if (formData[key] !== undefined && formData[key] !== null) {
+                payload.append(key, formData[key]);
+            }
+        }
+
+        setSaveStatus("saving");
+
+        const result = await updateUserProfile(payload);
+
+        if (result.success) {
+            setSaveStatus("saved");
+            setTimeout(() => setSaveStatus("idle"), 2000);
+        } else {
+            setSaveStatus("idle");
+            alert("Update failed.");
+        }
+    };
 
     const navigate = useNavigate();
     const handleSignOut = () => {
         localStorage.removeItem("access");
         localStorage.removeItem("refresh");
-        if (setUser) {
-            setUser(null);
-        }
+        localStorage.removeItem("user");
         navigate("/");
     }
 
@@ -89,7 +140,7 @@ export default function AccountSettings() {
                             <p className="text-zinc-400">Manage your account preferences and settings</p>
                         </div>
                         <Button
-                            onClick={handleSave}
+                            onClick={handleSubmit}
                             disabled={saveStatus === "saving"}
                             className="bg-emerald-500 hover:bg-emerald-600"
                         >
@@ -140,7 +191,7 @@ export default function AccountSettings() {
                                                         <span>Change Avatar</span>
                                                     </Button>
                                                     <input
-                                                        id="profile-image"
+                                                        id="avatar"
                                                         type="file"
                                                         accept="image/*"
                                                         className="hidden"
@@ -160,8 +211,9 @@ export default function AccountSettings() {
                                                     </Label>
                                                     <Input
                                                         id="name"
-                                                        placeholder="John Doe"
-                                                        defaultValue="John Doe"
+                                                        name="name"
+                                                        value={formData.name}
+                                                        onChange={handleChange}
                                                         className="bg-zinc-800 border-zinc-700 text-white"
                                                     />
                                                 </div>
@@ -171,8 +223,9 @@ export default function AccountSettings() {
                                                     </Label>
                                                     <Input
                                                         id="username"
-                                                        placeholder="johndoe"
-                                                        defaultValue="johndoe"
+                                                        name="username"
+                                                        value={formData.username}
+                                                        onChange={handleChange}
                                                         className="bg-zinc-800 border-zinc-700 text-white"
                                                     />
                                                 </div>
@@ -182,9 +235,10 @@ export default function AccountSettings() {
                                                     </Label>
                                                     <Input
                                                         id="email"
+                                                        name="email"
+                                                        value={formData.email}
+                                                        onChange={handleChange}
                                                         type="email"
-                                                        placeholder="john.doe@example.com"
-                                                        defaultValue="john.doe@example.com"
                                                         className="bg-zinc-800 border-zinc-700 text-white"
                                                     />
                                                 </div>
@@ -194,8 +248,9 @@ export default function AccountSettings() {
                                                     </Label>
                                                     <Input
                                                         id="location"
-                                                        placeholder="San Francisco, CA"
-                                                        defaultValue="San Francisco, CA"
+                                                        name="location"
+                                                        value={formData.location}
+                                                        onChange={handleChange}
                                                         className="bg-zinc-800 border-zinc-700 text-white"
                                                     />
                                                 </div>
@@ -206,8 +261,9 @@ export default function AccountSettings() {
                                                 </Label>
                                                 <Textarea
                                                     id="bio"
-                                                    placeholder="Tell us about yourself"
-                                                    defaultValue="Full-stack developer passionate about building great user experiences. I love working with React, Node.js, and TypeScript."
+                                                    name="bio"
+                                                    value={formData.bio}
+                                                    onChange={handleChange}
                                                     className="bg-zinc-800 border-zinc-700 text-white min-h-[120px]"
                                                 />
                                             </div>
@@ -224,8 +280,10 @@ export default function AccountSettings() {
                                                     <Github className="h-4 w-4" /> GitHub
                                                 </Label>
                                                 <Input
-                                                    placeholder="github.com/johndoe"
-                                                    defaultValue="github.com/johndoe"
+                                                    id="github"
+                                                    name="github"
+                                                    value={formData.github}
+                                                    onChange={handleChange}
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
                                             </div>
@@ -234,8 +292,10 @@ export default function AccountSettings() {
                                                     <Twitter className="h-4 w-4" /> Twitter
                                                 </Label>
                                                 <Input
-                                                    placeholder="twitter.com/johndoe"
-                                                    defaultValue="twitter.com/johndoe"
+                                                    id="twitter"
+                                                    name="twitter"
+                                                    value={formData.twitter}
+                                                    onChange={handleChange}
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
                                             </div>
@@ -244,8 +304,10 @@ export default function AccountSettings() {
                                                     <Linkedin className="h-4 w-4" /> LinkedIn
                                                 </Label>
                                                 <Input
-                                                    placeholder="linkedin.com/in/johndoe"
-                                                    defaultValue="linkedin.com/in/johndoe"
+                                                    id="linkedin"
+                                                    name="linkedin"
+                                                    value={formData.twitter}
+                                                    onChange={handleChange}
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
                                             </div>
@@ -254,8 +316,10 @@ export default function AccountSettings() {
                                                     <Globe className="h-4 w-4" /> Website
                                                 </Label>
                                                 <Input
-                                                    placeholder="johndoe.dev"
-                                                    defaultValue="johndoe.dev"
+                                                    id="personal_website"
+                                                    name="personal_website"
+                                                    value={formData.personal_website}
+                                                    onChange={handleChange}
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
                                             </div>
@@ -299,7 +363,7 @@ export default function AccountSettings() {
                                     <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
                                         Cancel
                                     </Button>
-                                    <Button onClick={handleSave} className="bg-emerald-500 hover:bg-emerald-600">
+                                    <Button onClick={handleSubmit} className="bg-emerald-500 hover:bg-emerald-600">
                                         Save Changes
                                     </Button>
                                 </CardFooter>
@@ -516,7 +580,7 @@ export default function AccountSettings() {
                                     <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
                                         Reset to Defaults
                                     </Button>
-                                    <Button onClick={handleSave} className="bg-emerald-500 hover:bg-emerald-600">
+                                    <Button onClick={handleSubmit} className="bg-emerald-500 hover:bg-emerald-600">
                                         Save Preferences
                                     </Button>
                                 </CardFooter>
