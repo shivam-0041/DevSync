@@ -29,10 +29,10 @@ export default function AccountSettings() {
         location: "",
         bio: "",
         github: "",
-        twitter: "",
         linkedin: "",
         personal_website: "",
-        skills: "",
+        twitter: "",
+        skill: [],
         company: "",
     });
 
@@ -47,6 +47,7 @@ export default function AccountSettings() {
                 setFormData({
                     ...formData,
                     ...data,
+                    skill: data.skill || [],
                 });
             }
         };

@@ -72,13 +72,16 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(write_only=True, required=False)
     username = serializers.CharField(source='user.username', required=False)
     email = serializers.EmailField(source='user.email', required=False)
+    skill = serializers.ListField(child=serializers.CharField(), source='skills', required=False)
 
     class Meta:
         model = Profile
         fields = [
             "avatar", "full_name", "username", "email", "location",
-            "bio", "social_links", "skills", "company"
+            "bio", "github", "linkedin", "personal_website", "twitter",
+            "skill", "company"
         ]
+
 
     def update(self, instance, validated_data):
         # Extract user data and profile data

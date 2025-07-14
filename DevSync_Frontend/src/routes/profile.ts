@@ -61,15 +61,24 @@ export const updateUserProfile = async (formValues) => {
         if (formValues.bio) formData.append('bio', formValues.bio);
         if (formValues.company) formData.append('company', formValues.company);
         if (formValues.github) formData.append('github', formValues.github);
-        if (formValues.twitter) formData.append('twitter', formValues.twitter);
         if (formValues.linkedin) formData.append('linkedin', formValues.linkedin);
         if (formValues.personal_website) formData.append('personal_website', formValues.personal_website);
+        if (formValues.twitter) formData.append('twitter', formValues.twitter);
 
         // Serialize arrays/objects
         if (formValues.skills) {
-            formData.append('skills', JSON.stringify(formValues.skills));
+            formData.append('skill', JSON.stringify(formValues.skills));
         }
 
+        if (formValues.full_name) {
+            formData.append('user.get_full_name', formValues.full_name); 
+        }
+        if (formValues.username) {
+            formData.append('user.username', formValues.username);
+        }
+        if (formValues.email) {
+            formData.append('user.email', formValues.email);
+        }
        
 
         const response = await axios.put(`${BASE_URL}profile/settings/`, formData, {
