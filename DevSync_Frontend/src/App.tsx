@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom
 import React, { lazy, Suspense } from 'react';
 import PrivateRoute from '../src/lib/PrivateRoute';
 import AuthGuard from '../src/components/auth_guard';
+import { Toaster } from "sonner";
+
 
 const HomePage = lazy(() => import('./pages/Landing'));
 const LoginPage = lazy(() => import('./pages/Login'));
@@ -35,7 +37,9 @@ function App() {
     return (
     <>
     {/*<Suspense fallback={<div>Loading...</div>}>*/}
+    <Toaster position="top-right" />
         <Routes>
+                
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />

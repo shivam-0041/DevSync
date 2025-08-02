@@ -10,7 +10,7 @@ class Profile(models.Model):
     )
     # Extended user info (not stored in RegisteredUser)
     bio = models.TextField(blank=True)
-    avatar = models.ImageField(upload_to='avatars/', blank=True)
+    avatar = models.ImageField(upload_to='avatars/', blank=True,null=True, default='avatars/def-avatar.svg')
 
     # Professional & personal info
     company = models.CharField(max_length=100, blank=True)

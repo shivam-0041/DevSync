@@ -29,6 +29,7 @@ export default function ProfilePage() {
 
     const navigate = useNavigate();
     const { username } = useParams();
+    const [profileImage, setProfileImage] = useState<string>("/def-avatar.svg")
     //const loggedInUser = JSON.parse(localStorage.getItem("username"));
 
     const [user, setUser] = useState({});
@@ -36,6 +37,16 @@ export default function ProfilePage() {
     useEffect(() => {
         fetchUserProfile()
             .then((data) => {
+              const avatar = data.avatar;
+
+                const isInvalidAvatar =
+                    !avatar ||
+                    avatar === "null" ||
+                    avatar === "undefined" ||
+                    avatar.includes("placeholder.svg");
+
+                setProfileImage(isInvalidAvatar ? "/def-avatar.svg" : avatar);
+
                 
 
                 // Map backend fields to frontend template
@@ -64,7 +75,6 @@ export default function ProfilePage() {
             })
             .catch((err: any) => console.error(err));
     }, []);
-
 
 
   // Sample user data
@@ -199,8 +209,7 @@ export default function ProfilePage() {
           <div className="w-full lg:w-80 space-y-6">
             <div className="flex flex-col items-center text-center">
               <Avatar className="h-40 w-40 mb-4">
-                <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                <AvatarFallback>{}</AvatarFallback>
+                <AvatarImage src={profileImage} alt={user.name} />
               </Avatar>
               <h1 className="text-2xl font-bold">{user.name}</h1>
               <p className="text-zinc-500 dark:text-zinc-400 mb-4">@{user.username}</p>

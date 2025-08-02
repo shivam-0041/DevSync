@@ -44,6 +44,7 @@ const Dashboard = () => {
     const { username } = useParams();
     const loggedInUser = JSON.parse(localStorage.getItem("user"))
     const [usser, setUser] = useState({});
+    const [profileImage, setProfileImage] = useState<string>("/def-avatar.svg")
     useEffect(() => {
         if (!isAuthenticated || !user) {
             navigate("/login");
@@ -52,7 +53,7 @@ const Dashboard = () => {
         if (username && user?.username !== username) {
             navigate(`/dashboard/${user.username}`);
         }
-
+      
 
     }, [isAuthenticated, isLoading, user, username, navigate]);
 
@@ -63,13 +64,21 @@ const Dashboard = () => {
     useEffect(() => {
         fetchUserProfile()
             .then((data) => {
+                const avatar = data.avatar;
+                const isInvalidAvatar =
+                    !avatar ||
+                    avatar === "null" ||
+                    avatar === "undefined" ||
+                    avatar.includes("placeholder.svg");
 
+                const image = setProfileImage(isInvalidAvatar ? "/def-avatar.svg" : avatar);
 
                 // Map backend fields to frontend template
                 setUser({
                     name: data.name,
                     username: data.username,
-                    avatar: data.avatar,
+                    avatar: image,
+
                 });
             })
             .catch((err: any) => console.error(err));
@@ -247,7 +256,7 @@ const Dashboard = () => {
                 </Link>
                <Link to={`/profile/${loggedInUser.username}`}>
                 <Avatar>
-                    <AvatarImage src={usser.avatar || "/placeholder.svg"} alt={usser.name} />
+                    <AvatarImage src={usser.avatar || "/def-avatar.svg"} alt={usser.name} />
                     <AvatarFallback>{ }</AvatarFallback>
                 </Avatar>
               </Link>
@@ -372,7 +381,7 @@ const Dashboard = () => {
                         title={project.name}
                         description={project.description}
                         icon={<GitBranch className="h-4 w-4" />}
-                        stats={`${project.stars} stars • ${project.language}`}
+                        stats={`${project.stars} stars ï¿½ ${project.language}`}
                       />
                     ))}
                   </CardContent>
@@ -401,7 +410,7 @@ const Dashboard = () => {
                         title={tool.name}
                         description={tool.description}
                         icon={<Bookmark className="h-4 w-4" />}
-                        stats={`${tool.category} • ${tool.trending}% growth`}
+                        stats={`${tool.category} ï¿½ ${tool.trending}% growth`}
                       />
                     ))}
                   </CardContent>

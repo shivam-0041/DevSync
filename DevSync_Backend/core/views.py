@@ -53,7 +53,7 @@ class UserProfileDetailView(APIView):
 class ProfileSettingsView(RetrieveUpdateAPIView):
     serializer_class = ProfileUpdateSerializer
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]  # ✅ Necessary for file uploads
+    parser_classes = [MultiPartParser, FormParser]  
 
     def get_object(self):
         return self.request.user.profile

@@ -72,14 +72,14 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(write_only=True, required=False)
     username = serializers.CharField(source='user.username', required=False)
     email = serializers.EmailField(source='user.email', required=False)
-    skill = serializers.ListField(child=serializers.CharField(), source='skills', required=False)
-
+    skills = serializers.JSONField(required=False)
+    
     class Meta:
         model = Profile
         fields = [
             "avatar", "full_name", "username", "email", "location",
             "bio", "github", "linkedin", "personal_website", "twitter",
-            "skill", "company"
+            "company", "skills"
         ]
 
 
@@ -87,6 +87,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         # Extract user data and profile data
         user_data = validated_data.pop('user', {})
         full_name = validated_data.pop('full_name', None)
+        skills_data = validated_data.get('Skills', {}).get('skill', None)
 
         user = instance.user
 
@@ -96,17 +97,27 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         if 'email' in user_data:
             user.email = user_data['email']
 
+        if 'avatar' in validated_data:
+            avatar_value = validated_data['avatar']
+            if avatar_value in [None, '', 'null', '__REMOVE__']:
+                instance.avatar.delete(save=False)
+                validated_data.pop('avatar', None)
+
+        if skills_data is not None:
+            instance.Skills = {"skill": skills_data}
+
         # Handle full name
         if full_name:
             parts = full_name.strip().split(" ", 1)
             user.first_name = parts[0]
             user.last_name = parts[1] if len(parts) > 1 else ""
 
+        
         user.save()
-
         # Update Profile model fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-
+         
         return instance
+    

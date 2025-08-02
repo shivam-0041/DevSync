@@ -1,14 +1,14 @@
 "use client"
 
 import type React from "react"
-
+import { toast } from "sonner";
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Code, User, Shield, Bell, Globe, Github, Twitter, Linkedin, Trash2, LogOut, Check } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Textarea } from "../components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
+import { Avatar, AvatarImage } from "../components/ui/avatar"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Switch } from "../components/ui/switch"
@@ -18,8 +18,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "../components/ui/badge"
 import { fetchUserProfile, updateUserProfile } from '../routes/profile'
 export default function AccountSettings() {
-    const [profileImage, setProfileImage] = useState<string>("/placeholder.svg?height=200&width=200")
+    const [profileImage, setProfileImage] = useState<string>("/def-avatar.svg")
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+    const [newSkill, setNewSkill] = useState("");
 
     const [formData, setFormData] = useState<any>({
         avatar: null,
@@ -32,7 +33,7 @@ export default function AccountSettings() {
         linkedin: "",
         personal_website: "",
         twitter: "",
-        skill: [],
+        skills: [],
         company: "",
     });
 
@@ -40,15 +41,26 @@ export default function AccountSettings() {
         const loadProfile = async () => {
             const data = await fetchUserProfile();
             if (data) {
-                if (data?.avatar) {
-                    setProfileImage(data.avatar);
-                }
-                console.log("Profile data loaded:", data);
-                setFormData({
-                    ...formData,
+                const avatar = data.avatar;
+
+                const isInvalidAvatar =
+                    !avatar ||
+                    avatar === "null" ||
+                    avatar === "undefined" ||
+                    avatar.includes("placeholder.svg");
+
+                setProfileImage(isInvalidAvatar ? "/def-avatar.svg" : avatar);
+
+                
+                const { socialLinks = {}, skills = [], ...rest } = data;
+
+                //console.log("Profile data loaded:", data);
+                setFormData(prev =>({
+                    ...prev,
                     ...data,
-                    skill: data.skill || [],
-                });
+                    ...socialLinks,
+                    skills: data.skills?.skill || [],
+                }));
             }
         };
         loadProfile();
@@ -59,44 +71,97 @@ export default function AccountSettings() {
         setFormData((prev: any) => ({ ...prev, [name]: value }));
     };
 
+    const handleAddSkill = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter" && newSkill.trim()) {
+            e.preventDefault();
+            if (!formData.skills.includes(newSkill.trim())) {
+                setFormData((prev) => ({
+                    ...prev,
+                    skills: [...prev.skills, newSkill.trim()],
+                }));
+            }
+            setNewSkill(""); // Clear input
+        }
+    };
+
+    const handleRemoveSkill = (indexToRemove: number) => {
+        setFormData((prev) => ({
+            ...prev,
+            skills: prev.skills.filter((_, i) => i !== indexToRemove),
+        }));
+    };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                if (e.target?.result) {
-                    setProfileImage(e.target.result as string);
-                }
-            };
-            reader.readAsDataURL(file);
-        }
+        if (!file) return;
+
+        // Show preview of selected image
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            if (event.target?.result) {
+                setProfileImage(event.target.result as string);
+            }
+        };
+        reader.readAsDataURL(file);
+
+        // Update formData state with the selected file
+        setFormData((prev: any) => ({
+            ...prev,
+            avatar: file,
+        }));
     };
+
+    const handleRemoveAvatar = () => {
+        setFormData((prev: any) => ({
+            ...prev,
+            avatar: null,
+        }));
+        setProfileImage('/def-avatar.svg');
+        toast("Avatar removed");
+    };
+    
 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        const payload = new FormData();
-        for (const key in formData) {
-            if (formData[key] !== undefined && formData[key] !== null) {
-                payload.append(key, formData[key]);
-            }
-        }
-
         setSaveStatus("saving");
 
-        const result = await updateUserProfile(payload);
+        const form = new FormData();
 
-        if (result.success) {
+        if (formData.avatar instanceof File) {
+            form.append("avatar", formData.avatar);
+        } else if (formData.avatar === null) {
+            form.append("avatar", "");
+        }
+
+        if (formData.name) form.append("full_name", formData.name);
+        if (formData.username) form.append("username", formData.username);
+        if (formData.email) form.append("email", formData.email);
+        if (formData.location) form.append("location", formData.location);
+        if (formData.bio) form.append("bio", formData.bio);
+        if (formData.company) form.append("company", formData.company);
+
+        if (formData.skills?.length > 0) {
+            form.append("skills", JSON.stringify({ skill: formData.skills }));
+        }
+        
+        if (formData.github) form.append("github", formData.github);
+        if (formData.linkedin) form.append("linkedin", formData.linkedin);
+        if (formData.twitter) form.append("twitter", formData.twitter);
+        if (formData.personal_website) form.append("personal_website", formData.personal_website);
+
+        console.log(formData)
+
+        const result = await updateUserProfile(form);
+
+        if (result?.success) {
             setSaveStatus("saved");
             setTimeout(() => setSaveStatus("idle"), 2000);
         } else {
             setSaveStatus("idle");
-            alert("Update failed.");
+            
         }
     };
-
     const navigate = useNavigate();
     const handleSignOut = () => {
         localStorage.removeItem("access");
@@ -124,8 +189,7 @@ export default function AccountSettings() {
                             </Link>
                             <Link to="/profile/:username">
                                 <Avatar>
-                                    <AvatarImage src={profileImage || "/placeholder.svg"} alt="User" />
-                                    <AvatarFallback className="bg-zinc-700 text-zinc-300">JD</AvatarFallback>
+                                    <AvatarImage src={profileImage} alt="User" />
                                 </Avatar>
                             </Link>
                         </div>
@@ -183,11 +247,10 @@ export default function AccountSettings() {
                                     <div className="flex flex-col md:flex-row gap-6">
                                         <div className="flex flex-col items-center gap-4">
                                             <Avatar className="h-32 w-32">
-                                                <AvatarImage src={profileImage || "/placeholder.svg"} alt="Profile" />
-                                                <AvatarFallback className="text-2xl bg-zinc-700 text-zinc-300">JD</AvatarFallback>
-                                            </Avatar>
+                                                <AvatarImage src={profileImage} alt="User" />
+                                                </Avatar>
                                             <div className="flex gap-2">
-                                                <label htmlFor="profile-image">
+                                                <label htmlFor="avatar">
                                                     <Button variant="outline" size="sm" className="cursor-pointer" asChild>
                                                         <span>Change Avatar</span>
                                                     </Button>
@@ -199,7 +262,7 @@ export default function AccountSettings() {
                                                         onChange={handleImageChange}
                                                     />
                                                 </label>
-                                                <Button variant="outline" size="sm" className="text-red-500 hover:text-red-400">
+                                                <Button variant="outline" size="sm"  className="text-red-500 hover:text-red-400" onClick={handleRemoveAvatar}>
                                                     Remove
                                                 </Button>
                                             </div>
@@ -307,7 +370,7 @@ export default function AccountSettings() {
                                                 <Input
                                                     id="linkedin"
                                                     name="linkedin"
-                                                    value={formData.twitter}
+                                                    value={formData.linkedin}
                                                     onChange={handleChange}
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
@@ -334,26 +397,28 @@ export default function AccountSettings() {
                                         <div className="space-y-2">
                                             <Label className="text-zinc-300">Skills</Label>
                                             <div className="flex flex-wrap gap-2 p-3 bg-zinc-800 rounded-md border border-zinc-700">
-                                                {["JavaScript", "TypeScript", "React", "Node.js", "GraphQL", "MongoDB", "AWS"].map(
-                                                    (skill, index) => (
-                                                        <Badge
-                                                            key={index}
-                                                            variant="secondary"
-                                                            className="bg-zinc-700 text-zinc-300 flex items-center gap-1"
+                                                {formData.skills?.map((skill: string, index: number) => (
+                                                    <Badge
+                                                        key={index}
+                                                        variant="secondary"
+                                                        className="bg-zinc-700 text-zinc-300 flex items-center gap-1"
+                                                    >
+                                                        {skill}
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-4 w-4 rounded-full hover:bg-zinc-600 p-0 ml-1"
+                                                            onClick={() => handleRemoveSkill(index)}
                                                         >
-                                                            {skill}
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-4 w-4 rounded-full hover:bg-zinc-600 p-0 ml-1"
-                                                            >
-                                                                <Trash2 className="h-3 w-3" />
-                                                            </Button>
-                                                        </Badge>
-                                                    ),
-                                                )}
+                                                            <Trash2 className="h-3 w-3" />
+                                                        </Button>
+                                                    </Badge>
+                                                ))}
                                                 <Input
                                                     placeholder="Add a skill..."
+                                                    value={newSkill}
+                                                    onChange={(e) => setNewSkill(e.target.value)}
+                                                    onKeyDown={handleAddSkill}
                                                     className="bg-zinc-700 border-zinc-600 text-white w-32 h-6 text-xs"
                                                 />
                                             </div>
@@ -364,8 +429,18 @@ export default function AccountSettings() {
                                     <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
                                         Cancel
                                     </Button>
-                                    <Button onClick={handleSubmit} className="bg-emerald-500 hover:bg-emerald-600">
-                                        Save Changes
+                                    <Button
+                                        onClick={handleSubmit}
+                                        disabled={saveStatus === "saving"}
+                                        className="bg-emerald-500 hover:bg-emerald-600"
+                                    >
+                                        {saveStatus === "idle" && "Save Changes"}
+                                        {saveStatus === "saving" && "Saving..."}
+                                        {saveStatus === "saved" && (
+                                            <>
+                                                <Check className="mr-2 h-4 w-4" /> Saved
+                                            </>
+                                        )}
                                     </Button>
                                 </CardFooter>
                             </Card>
@@ -390,7 +465,7 @@ export default function AccountSettings() {
                                                 <Input
                                                     id="current-password"
                                                     type="password"
-                                                    placeholder="••••••••"
+                                                    placeholder="ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
                                             </div>
@@ -401,7 +476,7 @@ export default function AccountSettings() {
                                                 <Input
                                                     id="new-password"
                                                     type="password"
-                                                    placeholder="••••••••"
+                                                    placeholder="ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
                                             </div>
@@ -412,7 +487,7 @@ export default function AccountSettings() {
                                                 <Input
                                                     id="confirm-password"
                                                     type="password"
-                                                    placeholder="••••••••"
+                                                    placeholder="ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
                                             </div>
@@ -444,7 +519,7 @@ export default function AccountSettings() {
                                                 <div className="flex justify-between items-start">
                                                     <div>
                                                         <p className="text-zinc-300 font-medium">Current Session</p>
-                                                        <p className="text-sm text-zinc-500">San Francisco, CA • Chrome on macOS</p>
+                                                        <p className="text-sm text-zinc-500">San Francisco, CA ï¿½ Chrome on macOS</p>
                                                         <p className="text-xs text-zinc-500 mt-1">Started 2 hours ago</p>
                                                     </div>
                                                     <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Active</Badge>
@@ -454,7 +529,7 @@ export default function AccountSettings() {
                                                 <div className="flex justify-between items-start">
                                                     <div>
                                                         <p className="text-zinc-300 font-medium">Mobile App</p>
-                                                        <p className="text-sm text-zinc-500">San Francisco, CA • iOS App</p>
+                                                        <p className="text-sm text-zinc-500">San Francisco, CA ï¿½ iOS App</p>
                                                         <p className="text-xs text-zinc-500 mt-1">Last active 3 days ago</p>
                                                     </div>
                                                     <Button variant="outline" size="sm" className="text-red-500 hover:text-red-400">
@@ -706,7 +781,7 @@ export default function AccountSettings() {
                                                     <div className="flex justify-between items-center p-2 hover:bg-zinc-700 rounded-md">
                                                         <div>
                                                             <p className="text-zinc-300">Development Token</p>
-                                                            <p className="text-xs text-zinc-500">Created 30 days ago • Expires in 60 days</p>
+                                                            <p className="text-xs text-zinc-500">Created 30 days ago ï¿½ Expires in 60 days</p>
                                                         </div>
                                                         <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-400">
                                                             Revoke

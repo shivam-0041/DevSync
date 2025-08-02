@@ -1,5 +1,5 @@
 import axios from "axios";
-
+import { toast } from "sonner";
 // Set base URL for your backend
 const BASE_URL = "http://localhost:8000/api/core/";
 
@@ -19,7 +19,7 @@ export async function getCsrfToken() {
 export const fetchUserProfile = async () => {
     try {
 
-        const token = localStorage.getItem("access"); // or wherever you store it
+        const token = localStorage.getItem("access"); 
 
         if (!token) {
             console.error('No token found in localStorage');
@@ -43,54 +43,27 @@ export const fetchUserProfile = async () => {
 };
 
 
-export const updateUserProfile = async (formValues) => {
+export const updateUserProfile = async (formData) => {
     try {
         const token = localStorage.getItem("access");
+
         if (!token) {
-            console.error('No token found in localStorage');
-            return null;
+            console.error("No token found in localStorage");
+            return { success: false };
         }
-
-        const formData = new FormData();
-
-        if (formValues.avatar) formData.append('avatar', formValues.avatar);
-        if (formValues.full_name) formData.append('name', formValues.full_name);
-        if (formValues.username) formData.append('username', formValues.username);
-        if (formValues.email) formData.append('email', formValues.email);
-        if (formValues.location) formData.append('location', formValues.location);
-        if (formValues.bio) formData.append('bio', formValues.bio);
-        if (formValues.company) formData.append('company', formValues.company);
-        if (formValues.github) formData.append('github', formValues.github);
-        if (formValues.linkedin) formData.append('linkedin', formValues.linkedin);
-        if (formValues.personal_website) formData.append('personal_website', formValues.personal_website);
-        if (formValues.twitter) formData.append('twitter', formValues.twitter);
-
-        // Serialize arrays/objects
-        if (formValues.skills) {
-            formData.append('skill', JSON.stringify(formValues.skills));
-        }
-
-        if (formValues.full_name) {
-            formData.append('user.get_full_name', formValues.full_name); 
-        }
-        if (formValues.username) {
-            formData.append('user.username', formValues.username);
-        }
-        if (formValues.email) {
-            formData.append('user.email', formValues.email);
-        }
-       
-
+        console.log(formData);
+        
         const response = await axios.put(`${BASE_URL}profile/settings/`, formData, {
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'multipart/form-data',
+                Authorization: `Bearer ${token}`,
             },
         });
 
-        return response.data;
+        toast.success("Profile updated successfully!");
+        return { success: true, data: response.data };
     } catch (error) {
-        console.error('Error updating user profile:', error.response?.data || error.message);
-        return null;
+        console.error("Update failed:", error.response?.data || error.message);
+        toast.error("Failed to update profile");
+        return { success: false };
     }
 };

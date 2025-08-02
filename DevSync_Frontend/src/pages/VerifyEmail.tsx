@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Input } from "../components/ui/input"
 import { CheckCircle2, Mail, AlertTriangle } from "lucide-react"
 import { useNavigate } from "react-router-dom";
-import { handleRegistrationSubmit, verifyEmailCode } from "../routes/auth";
+//import { handleRegistrationSubmit, verifyEmailCode } from "../routes/auth";
 
 export default function VerifyEmailPage() {
     const navigate = useNavigate()
