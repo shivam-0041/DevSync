@@ -65,19 +65,20 @@ const Dashboard = () => {
         fetchUserProfile()
             .then((data) => {
                 const avatar = data.avatar;
+                
                 const isInvalidAvatar =
                     !avatar ||
                     avatar === "null" ||
-                    avatar === "undefined" ||
-                    avatar.includes("placeholder.svg");
+                    avatar === "undefined";
+                     (typeof avatar === "string" && avatar.includes("placeholder.svg"));
 
-                const image = setProfileImage(isInvalidAvatar ? "/def-avatar.svg" : avatar);
+                setProfileImage(isInvalidAvatar ? "/def-avatar.svg" : avatar);
 
                 // Map backend fields to frontend template
                 setUser({
                     name: data.name,
                     username: data.username,
-                    avatar: image,
+                    avatar: isInvalidAvatar ? "/def-avatar.svg" : avatar,
 
                 });
             })

@@ -121,3 +121,17 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
          
         return instance
     
+
+class PasswordUpdateSerializer(serializers.ModelSerializer):
+    current_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+    confirm_password = serializers.CharField(required=True)
+
+    class Meta:
+        model = Profile
+        fields = ['current_password', 'new_password', 'confirm_password']
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+        return attrs

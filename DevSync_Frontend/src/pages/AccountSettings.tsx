@@ -16,11 +16,12 @@ import { Label } from "../components/ui/label"
 import { Separator } from "../components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
 import { Badge } from "../components/ui/badge"
-import { fetchUserProfile, updateUserProfile } from '../routes/profile'
+import { fetchUserProfile, updateUserProfile, updateUserPassword } from '../routes/profile'
 export default function AccountSettings() {
     const [profileImage, setProfileImage] = useState<string>("/def-avatar.svg")
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
     const [newSkill, setNewSkill] = useState("");
+    const [activeTab, setActiveTab] = useState("profile");
 
     const [formData, setFormData] = useState<any>({
         avatar: null,
@@ -119,10 +120,23 @@ export default function AccountSettings() {
         setProfileImage('/def-avatar.svg');
         toast("Avatar removed");
     };
+
+    const handleSave = (e: React.FormEvent) => {
+        
+        if (activeTab === "profile") {
+            handleProfileUpdate(e);
+        } else if (activeTab === "security") {        
+            updateUserPassword(passwordData);
+        } else if (activeTab === "notifications") {
+            //handleNotificationUpdate(e);
+        } else if (activeTab === "integrations") {
+            //handleIntegrationUpdate(e);
+        }
+};
     
 
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleProfileUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaveStatus("saving");
 
@@ -150,7 +164,8 @@ export default function AccountSettings() {
         if (formData.twitter) form.append("twitter", formData.twitter);
         if (formData.personal_website) form.append("personal_website", formData.personal_website);
 
-        console.log(formData)
+
+        
 
         const result = await updateUserProfile(form);
 
@@ -169,6 +184,24 @@ export default function AccountSettings() {
         localStorage.removeItem("user");
         navigate("/");
     }
+
+
+
+
+    /////Security Tab/////
+
+    const [passwordData, setPasswordData] = useState<{
+        current_password: string;
+        new_password: string;
+        confirm_password: string;
+        }>({
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
+    });
+
+    
+
 
     return (
         <div className="min-h-screen bg-zinc-950">
@@ -205,7 +238,7 @@ export default function AccountSettings() {
                             <p className="text-zinc-400">Manage your account preferences and settings</p>
                         </div>
                         <Button
-                            onClick={handleSubmit}
+                            onClick={handleSave}
                             disabled={saveStatus === "saving"}
                             className="bg-emerald-500 hover:bg-emerald-600"
                         >
@@ -219,7 +252,7 @@ export default function AccountSettings() {
                         </Button>
                     </div>
 
-                    <Tabs defaultValue="profile" className="w-full">
+                    <Tabs defaultValue="profile" value={activeTab} onValueChange={(val) => setActiveTab(val)} className="w-full">
                         <TabsList className="bg-zinc-800 mb-6">
                             <TabsTrigger value="profile" className="data-[state=active]:bg-zinc-700">
                                 <User className="h-4 w-4 mr-2" /> Profile
@@ -430,7 +463,7 @@ export default function AccountSettings() {
                                         Cancel
                                     </Button>
                                     <Button
-                                        onClick={handleSubmit}
+                                        onClick={handleSave}
                                         disabled={saveStatus === "saving"}
                                         className="bg-emerald-500 hover:bg-emerald-600"
                                     >
@@ -466,6 +499,10 @@ export default function AccountSettings() {
                                                     id="current-password"
                                                     type="password"
                                                     placeholder="��������"
+                                                    value={passwordData.current_password}
+                                                    onChange={(e) =>
+                                                        setPasswordData({ ...passwordData, current_password: e.target.value })
+                                                    }
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
                                             </div>
@@ -477,6 +514,10 @@ export default function AccountSettings() {
                                                     id="new-password"
                                                     type="password"
                                                     placeholder="��������"
+                                                    value={passwordData.new_password}
+                                                    onChange={(e) =>
+                                                        setPasswordData({ ...passwordData, new_password: e.target.value })
+                                                    }
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
                                             </div>
@@ -488,10 +529,14 @@ export default function AccountSettings() {
                                                     id="confirm-password"
                                                     type="password"
                                                     placeholder="��������"
+                                                    value={passwordData.confirm_password}
+                                                    onChange={(e) =>
+                                                        setPasswordData({ ...passwordData, confirm_password: e.target.value })
+                                                    }
                                                     className="bg-zinc-800 border-zinc-700 text-white"
                                                 />
                                             </div>
-                                            <Button className="bg-emerald-500 hover:bg-emerald-600 mt-2">Update Password</Button>
+                                            <Button type="button" className="bg-emerald-500 hover:bg-emerald-600 mt-2" onClick={(e) => handleSave(e)}>Update Password</Button>
                                         </div>
                                     </div>
 
@@ -512,7 +557,7 @@ export default function AccountSettings() {
 
                                     <Separator className="bg-zinc-800" />
 
-                                    <div className="space-y-4">
+                                    <div className="space-y-4 hidden">
                                         <h3 className="text-lg font-medium text-white">Sessions</h3>
                                         <div className="space-y-4">
                                             <div className="bg-zinc-800 p-4 rounded-md border border-zinc-700">
@@ -656,7 +701,7 @@ export default function AccountSettings() {
                                     <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
                                         Reset to Defaults
                                     </Button>
-                                    <Button onClick={handleSubmit} className="bg-emerald-500 hover:bg-emerald-600">
+                                    <Button onClick={handleSave} className="bg-emerald-500 hover:bg-emerald-600">
                                         Save Preferences
                                     </Button>
                                 </CardFooter>

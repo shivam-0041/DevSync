@@ -51,7 +51,7 @@ export const updateUserProfile = async (formData) => {
             console.error("No token found in localStorage");
             return { success: false };
         }
-        console.log(formData);
+        
         
         const response = await axios.put(`${BASE_URL}profile/settings/`, formData, {
             headers: {
@@ -67,3 +67,29 @@ export const updateUserProfile = async (formData) => {
         return { success: false };
     }
 };
+
+export const updateUserPassword = async (formData) => {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false };
+        }
+        
+        
+        const response = await axios.post(`${BASE_URL}profile/password-update/`, formData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        toast.success("Password updated successfully!");
+        return { success: true, data: response.data };
+    } catch (error) {
+        console.error("Update failed:", error.response?.data || error.message);
+        toast.error("Failed to update password");
+        return { success: false };
+    }
+}

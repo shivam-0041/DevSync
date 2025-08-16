@@ -390,3 +390,4 @@ dist-ssr
 
 #Extra folder
 myenv
+media/avatars/*

@@ -8,8 +8,9 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import RetrieveUpdateAPIView
-from .serializers import ProfileUpdateSerializer
+from .serializers import ProfileUpdateSerializer, PasswordUpdateSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework import status
 User = get_user_model()
 
 
@@ -57,3 +58,18 @@ class ProfileSettingsView(RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user.profile
+    
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = PasswordUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            user = request.user
+            if not user.check_password(serializer.validated_data['current_password']):
+                return Response({"error": "Incorrect current password"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response({"success": "Password updated successfully"})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
