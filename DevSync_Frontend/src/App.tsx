@@ -32,6 +32,7 @@ const NewIssue = lazy(() => import('./pages/NewIssue'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const NewPullRequest = lazy(() => import('./pages/NewPullReq'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
+const IssuePage = lazy(() => import('./pages/IssuePage'));
 
 function App() {
     return (
@@ -55,20 +56,23 @@ function App() {
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/user" element={<UserProfile />} />
             <Route path="/:username" element={<PublicProfile />} />
+            <Route path="/settings" element={<ProjectSettings />} />
+            <Route path="/manage-collaborators" element={<ManageCollaborators />} />
 
             <Route element={<AuthGuard/>}>
                 <Route path="/dashboard/:username" element={ <Dashboard /> } />
-                <Route path="/:username/new-repo" element={ <NewRepo /> } />
-                <Route path="/:username/project/new-issue" element={ <NewIssue />} />           
-                <Route path="/:username/project/new-pull-request" element={<NewPullRequest />} />
+                <Route path="/:username/new-repo" element={ <NewRepo /> } />       
+                <Route path="/:username/project/:slug/issues/new" element={<NewIssue />} />
+                <Route path="/issue/:issueId" element={<IssuePage />} />
+                <Route path="/:username/project/:slug/pull-request" element={<NewPullRequest />} />
                 <Route path="/:username/notifications" element={<Notifications />} />
                 <Route path="/:username/project/:id" element={<ProjectPage />} />
-                <Route path="/:username/project/:id/whiteboard" element={<WhiteboardPage />} />
+                <Route path="/:username/project/:slug/whiteboard/:whiteboard_id" element={<WhiteboardPage />} />
                 <Route path="/profile/:username" element={<ProfilePage />} />      
                 <Route path="/:username/project/collaborate/:id" element={<CollaboratePage />} />
                 <Route path="/:username/account/settings" element={<AccountSettings />} />
-                <Route path="/:username/project/:id/settings" element={<ProjectSettings />} />
-                <Route path="/:username/project/:id/manage-collaborators" element={<ManageCollaborators />} />
+                <Route path="/:username/project/:slug/settings" element={<ProjectSettings />} />
+                {/* <Route path="/:username/project/:id/manage-collaborators" element={<ManageCollaborators />} /> */}
             </Route>
                     
         </Routes>

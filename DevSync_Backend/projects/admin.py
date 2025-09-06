@@ -26,6 +26,8 @@ from .models import (
     Branch,
     DiscussionThread,
     CodeFile,
+    Issue,
+    ProjectTask,
 )
 
 @admin.register(Project)
@@ -51,3 +53,22 @@ class CodeFileAdmin(admin.ModelAdmin):
     list_filter = ('item_type', 'uploaded_at', 'filetype')
     search_fields = ('name', 'filetype')
     autocomplete_fields = ('parent', 'project', 'branch', 'uploaded_by')
+
+@admin.register(Issue)
+class IssueAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "title",
+        "status",
+        "project",
+        "created_by",
+        "assigned_to",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("status", "created_at", "updated_at", "project")
+    search_fields = ("title", "description", "created_by__username", "assigned_to__username")
+    ordering = ("-created_at",)
+
+
+admin.site.register(ProjectTask)

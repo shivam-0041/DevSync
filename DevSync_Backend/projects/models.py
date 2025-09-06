@@ -2,6 +2,8 @@ import uuid
 from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.utils.timezone import now
 
 User = get_user_model()
 
@@ -13,6 +15,9 @@ def upload_to_project(instance, filename):
 
 def generate_project_id():
     return f"proj-{uuid.uuid4().hex[:12]}"
+
+def generate_task_id():
+    return f"Task-{uuid.uuid4().hex[:6].upper()}"
 
 # ============================
 # Project Model
@@ -64,6 +69,23 @@ class Project(models.Model):
     boards_enabled = models.BooleanField(default=False)
     discussions_enabled = models.BooleanField(default=False)
     auto_init = models.BooleanField(default=False)
+
+    @property
+    def branches_count(self):
+        return self.branches.count()
+    
+    def discussion_count(self):
+        return self.threads.count()
+    
+    def commits_count(self):
+        return self.activities.filter(action="commit").count()
+    
+    def issue_count(self):
+        return self.issues
+    
+    def open_pull_request_count(self):
+        return self.pull_requests.filter(status="open").count()
+    
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -122,6 +144,7 @@ class DiscussionThread(models.Model):
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+
     def __str__(self):
         return self.title
 
@@ -168,6 +191,10 @@ class PullRequest(models.Model):
     message = models.TextField(blank=True)
     status = models.CharField(max_length=10, choices=[('open', 'Open'), ('merged', 'Merged'), ('rejected', 'Rejected')], default='open')
     created_at = models.DateTimeField(auto_now_add=True)
+    labels = models.JSONField(default=list, blank=True)
+    reviewers = models.JSONField(default=list, blank=True)
+    is_draft = models.BooleanField(default=False)
+    
     def __str__(self):
         return f"{self.user} - {self.project} ({self.role})"
 
@@ -180,7 +207,55 @@ class ProjectActivity(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     action = models.CharField(max_length=200)  # e.g., "Created branch", "Committed code"
     timestamp = models.DateTimeField(auto_now_add=True)
-    extra_data = models.JSONField(blank=True, null=True)  # For future flexibility
+    extra_data = models.JSONField(blank=True, null=True) 
+
+
+
+# ============================
+# Project Tasks Model
+# ============================
+
+def validate_deadline(value):
+    if value < now().date():
+        raise ValidationError("Deadline cannot be in the past.")
+class ProjectTask(models.Model):
+
+    PRIORITY_CHOICES = [
+        ("low", "Low"),
+        ("medium", "Medium"),
+        ("high", "High"),
+        ("critical","Critical")
+    ]
+
+    STATUS_CHOICES = [
+        ("in_progress", "In Progress"),
+        ("to_do", "To Do"),
+        ("review", "Review"),
+    ]
+
+    task_id = models.CharField(
+        max_length=20,
+        default=generate_task_id,
+        unique=True,
+        editable=False
+    )
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks')
+    title = models.CharField(max_length=50, blank=False, null=False)
+    description = models.TextField()
+    assign_to = models.ForeignKey(User, on_delete=models.SET_NULL,related_name="assigned_tasks", null=True)
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="medium")
+    deadline = models.DateField(validators=[validate_deadline])
+    labels = models.JSONField(default=list, blank=True)
+    dependencies = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="to_do")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.title}({self.project.name})"
+
+
 
 
 # ============================
@@ -194,6 +269,48 @@ class ProjectInvite(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self):
         return f"{self.user} - {self.project} ({self.role})"
+    
+
+# ============================
+# Issues Model
+# ============================
+
+class Issue(models.Model):
+    STATUS_CHOICES = [
+        ("open", "Open"),
+        ("closed", "Closed"),
+    ]
+
+    ISSUE_TYPES= [
+        ("Bug Report", "bug report"),
+        ("Feature Request","feature request"),
+        ("Improvement","improvement"),
+        ("Question", "question"),
+    ]
+
+    PRIORITY_CHOICES = [
+        ("low", "Low"),
+        ("medium", "Medium"),
+        ("high", "High"),
+        ("critical","Critical")
+    ]
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="issues_list")
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="open")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_issues")
+    issue_type = models.CharField(max_length=20, choices=ISSUE_TYPES, default="Bug Report")
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="medium")
+    labels = models.JSONField(default=list, blank=True)
+
+
+    def __str__(self):
+        return f"Issue #{self.id} - {self.title}"
+
 
 
 # ============================

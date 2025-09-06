@@ -10,8 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Plus, Users, Tag, FileText, ArrowRight, Lightbulb, Bug, Zap } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, Navigate, useNavigate } from "react-router-dom"
 import {AuthGuard} from "../components/auth_guard"
+import { toast } from "sonner";
+import { createNewIssue } from "../routes/projects" 
+import { useParams } from "react-router-dom";
 
 interface FormData {
   title: string
@@ -44,7 +47,12 @@ interface IssueLabel {
 }
 
 const NewIssuePage: React.FC = () => {
+
+  const { slug, username } = useParams<{ slug: string; username: string }>(); 
+
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<FormData>({
+    id: slug,
     title: "",
     description: "",
     type: "bug",
@@ -55,6 +63,9 @@ const NewIssuePage: React.FC = () => {
   })
   const [isCreating, setIsCreating] = useState<boolean>(false)
   const [selectedTemplate, setSelectedTemplate] = useState<IssueTemplate | null>(null)
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customLabel, setCustomLabel] = useState("");
+  
 
   const issueTemplates = useMemo<IssueTemplate[]>(
     () => [
@@ -130,6 +141,27 @@ Add any other context, mockups, or examples here.`,
     [],
   )
 
+  const toggleLabel = (labelName: string) => {
+    setFormData((prev) => {
+      if (prev.labels.includes(labelName)) {
+        // remove if already selected
+        return { ...prev, labels: prev.labels.filter((l) => l !== labelName) };
+      } else {
+        // add if not selected
+        return { ...prev, labels: [...prev.labels, labelName] };
+      }
+    });
+  };
+
+  const addCustomLabel = () => {
+    if (customLabel.trim() !== "") {
+      toggleLabel(customLabel.trim());
+      setCustomLabel("");
+      setShowCustomInput(false);
+    }
+  };
+
+
   const availableLabels = useMemo<IssueLabel[]>(
     () => [
       { name: "bug", color: "bg-red-500" },
@@ -165,6 +197,7 @@ Add any other context, mockups, or examples here.`,
           type: template.type,
           description: template.template,
         }))
+        toast.success("Description Updated")
       }}
     >
       <CardContent className="p-6 text-center">
@@ -182,13 +215,28 @@ Add any other context, mockups, or examples here.`,
     e.preventDefault()
     setIsCreating(true)
 
-    // Simulate API call
+    try {
+      const response = await createNewIssue(slug,formData);
+
+
+      if (response.success) {
+          navigate(`/dashboard/${username}`);
+          toast.success("Issue Created!")
+      } else {
+          toast(`Failed to create: ${response?.error || "Unknown error"}`);
+      }
+    } catch (error) {
+        console.error("Unexpected error:", error);
+        toast("Unexpected error occurred. Please try again.");
+    } finally {
+        setIsCreating(false);
+    }
+
     setTimeout(() => {
       setIsCreating(false)
-      // Redirect to the new issue
-      window.location.href = `/issues/43`
+      
     }, 2000)
-  }, [])
+  }, [slug, formData, username, navigate])
 
   return (
       <div className="container mx-auto px-4 py-16">
@@ -231,11 +279,12 @@ Add any other context, mockups, or examples here.`,
                           value={formData.title}
                           onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
                           className="border-gray-700 bg-gray-800"
+                          required
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
+                        <Label htmlFor="description">Description *</Label>
                         <Textarea
                           id="description"
                           placeholder="Provide a detailed description of the issue..."
@@ -243,6 +292,7 @@ Add any other context, mockups, or examples here.`,
                           onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                           className="border-gray-700 bg-gray-800"
                           rows={8}
+                          required
                         />
                         <p className="text-xs text-gray-400">
                           Use Markdown to format your description. Include steps to reproduce, expected behavior, and
@@ -324,7 +374,7 @@ Add any other context, mockups, or examples here.`,
                         </>
                       )}
                     </Button>
-                    <Link href="/issues">
+                    <Link to={`/${username}/project/${slug}`}>
                       <Button variant="outline" className="border-gray-700">
                         Cancel
                       </Button>
@@ -367,17 +417,59 @@ Add any other context, mockups, or examples here.`,
                     {availableLabels.slice(0, 4).map((label) => (
                       <Badge
                         key={label.name}
-                        variant="secondary"
-                        className={`${label.color} text-white text-xs cursor-pointer hover:opacity-80`}
+                        variant={formData.labels.includes(label.name) ? "default" : "secondary"}
+                        className={`
+                          ${label.color} text-white text-xs cursor-pointer hover:opacity-80 
+                          border-4 transition-colors duration-200
+                          ${formData.labels.includes(label.name) ? "border-emerald-600" : "border-transparent"}
+                        `}
+                        onClick={() => toggleLabel(label.name)}
                       >
                         {label.name}
                       </Badge>
                     ))}
                   </div>
-                  <Button variant="outline" size="sm" className="w-full border-gray-700">
+
+                  {showCustomInput && (
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      placeholder="Enter custom label"
+                      value={customLabel}
+                      onChange={(e) => setCustomLabel(e.target.value)}
+                      className="border rounded px-2 py-1 text-sm w-full"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={addCustomLabel}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                )}
+                  <Button variant="outline" size="sm" className="w-full border-gray-700" onClick={() => setShowCustomInput(!showCustomInput)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Add labels
                   </Button>
+
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Labels:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.labels.length > 0 ? (
+                        formData.labels.map((label, idx) => (
+                          <Badge
+                            key={idx}
+                            className="bg-emerald-600 text-white text-xs cursor-pointer hover:opacity-80"
+                            onClick={() => toggleLabel(label)}
+                          >
+                            {label} X
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-xs text-gray-500">No labels selected</p>
+                      )}
+                    </div>
+                  </div>
                   <p className="text-xs text-gray-400">Labels help categorize and filter issues.</p>
                 </div>
               </CardContent>
@@ -420,19 +512,19 @@ Add any other context, mockups, or examples here.`,
                 <div className="space-y-2">
                   <h4 className="font-medium">Writing good issues:</h4>
                   <ul className="space-y-1 text-sm text-gray-400">
-                    <li>• Use a clear, descriptive title</li>
-                    <li>• Provide detailed steps to reproduce</li>
-                    <li>• Include screenshots when helpful</li>
-                    <li>• Add relevant labels and assignees</li>
+                    <li>ï¿½ Use a clear, descriptive title</li>
+                    <li>ï¿½ Provide detailed steps to reproduce</li>
+                    <li>ï¿½ Include screenshots when helpful</li>
+                    <li>ï¿½ Add relevant labels and assignees</li>
                   </ul>
                 </div>
                 <div className="space-y-2">
                   <h4 className="font-medium">Markdown support:</h4>
                   <ul className="space-y-1 text-sm text-gray-400">
-                    <li>• **bold text**</li>
-                    <li>• *italic text*</li>
-                    <li>• \`code snippets\`</li>
-                    <li>• - bullet points</li>
+                    <li>ï¿½ **bold text**</li>
+                    <li>ï¿½ *italic text*</li>
+                    <li>ï¿½ \`code snippets\`</li>
+                    <li>ï¿½ - bullet points</li>
                   </ul>
                 </div>
               </CardContent>

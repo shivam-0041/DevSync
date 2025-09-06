@@ -54,7 +54,7 @@ const NewPullRequestPage: React.FC = () => {
         title: "",
         description: "",
         baseBranch: "main",
-        compareBranch: "feature/user-authentication",
+        compareBranch: "main",
         assignees: [],
         reviewers: [],
         labels: [],
@@ -262,7 +262,7 @@ const NewPullRequestPage: React.FC = () => {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex items-center space-x-4">
-                                        <div className="flex-1">
+                                        <div className="flex-1 space-y-2">
                                             <Label htmlFor="base-branch">Base branch</Label>
                                             <Select
                                                 value={formData.baseBranch}
@@ -286,7 +286,7 @@ const NewPullRequestPage: React.FC = () => {
 
                                         <ArrowRight className="h-5 w-5 text-gray-400 mt-6" />
 
-                                        <div className="flex-1">
+                                        <div className="flex-1 space-y-2">
                                             <Label htmlFor="compare-branch">Compare branch</Label>
                                             <Select
                                                 value={formData.compareBranch}
@@ -361,7 +361,7 @@ const NewPullRequestPage: React.FC = () => {
                             </Card>
 
                             {/* Changes Preview */}
-                            <Card className="border-gray-800 bg-gray-900/50">
+                            {/* <Card className="border-gray-800 bg-gray-900/50">
                                 <CardHeader>
                                     <CardTitle>Changes</CardTitle>
                                     <CardDescription>Review the changes in this pull request</CardDescription>
@@ -390,7 +390,7 @@ const NewPullRequestPage: React.FC = () => {
                                         </TabsContent>
                                     </Tabs>
                                 </CardContent>
-                            </Card>
+                            </Card> */}
 
                             <div className="flex space-x-4">
                                 <Button type="submit" className="bg-emerald-500 text-black hover:bg-emerald-600" disabled={isCreating}>

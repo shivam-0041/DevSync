@@ -11,6 +11,7 @@ import { Switch } from "../components/ui/switch"
 import { Lock, Globe, Users, FileText, ArrowRight, AlertCircle } from "lucide-react"
 import { Link,useNavigate } from "react-router-dom"
 import { createProject } from '../routes/projects'
+import { toast } from "sonner";
 interface FormData {
     name: string
     description: string
@@ -45,6 +46,7 @@ const NewRepositoryPage: React.FC = () => {
         projects: true,
         discussions: false,
         autoInit: true,
+        
     })
     const [isCreating, setIsCreating] = useState<boolean>(false)
     const [errors, setErrors] = useState<FormErrors>({})
@@ -72,39 +74,28 @@ const NewRepositoryPage: React.FC = () => {
         return Object.keys(newErrors).length === 0
     }, [formData.name])
 
-    const handleSubmit = useCallback(
-        async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
             e.preventDefault();
 
             if (!validateForm()) return;
 
             setIsCreating(true);
 
-            const accessToken = localStorage.getItem("access");
-            if (!accessToken) {
-                setIsCreating(false);
-                alert("Access token missing. Please login again.");
-                return;
-            }
-
             try {
-                const response = await createProject(formData, accessToken);
+                const response = await createProject(formData);
 
                 if (response.success) {
-                    // You can route using navigate or window.location
-                    window.location.href = `/dashboard/${response.project.slug}`;
+                    navigate(`/dashboard/${response.project.slug}`);
                 } else {
-                    alert("Failed to create project: " + response.error);
+                    toast(`Failed to create project: ${response?.error || "Unknown error"}`);
                 }
             } catch (error) {
                 console.error("Unexpected error creating project:", error);
-                alert("Unexpected error occurred. Please try again.");
+                toast("Unexpected error occurred. Please try again.");
             } finally {
                 setIsCreating(false);
             }
-        },
-        [validateForm, formData]
-    )
+        }
 
     const handleVisibilityChange = useCallback(
         (visibility: "public" | "private") => {
@@ -371,7 +362,7 @@ const NewRepositoryPage: React.FC = () => {
                             </Card>
 
                             <div className="flex space-x-4">
-                                <Button type="submit" className="bg-emerald-500 text-black hover:bg-emerald-600" disabled={isCreating}>
+                                <Button onClick={handleSubmit} className="bg-emerald-500 text-black hover:bg-emerald-600" disabled={isCreating}>
                                     {isCreating ? (
                                         "Creating repository..."
                                     ) : (
@@ -380,7 +371,7 @@ const NewRepositoryPage: React.FC = () => {
                                         </>
                                     )}
                                 </Button>
-                                <Link to="/dashboard">
+                                <Link to="/dashboard/:username">
                                     <Button variant="outline" className="border-gray-700">
                                         Cancel
                                     </Button>
@@ -401,19 +392,19 @@ const NewRepositoryPage: React.FC = () => {
                                 <div className="space-y-2">
                                     <h4 className="font-medium">Great repository names are:</h4>
                                     <ul className="space-y-1 text-sm text-gray-400">
-                                        <li>• Short and memorable</li>
-                                        <li>• Descriptive of the project</li>
-                                        <li>• Use lowercase letters</li>
-                                        <li>• Use hyphens to separate words</li>
+                                        <li>ï¿½ Short and memorable</li>
+                                        <li>ï¿½ Descriptive of the project</li>
+                                        <li>ï¿½ Use lowercase letters</li>
+                                        <li>ï¿½ Use hyphens to separate words</li>
                                     </ul>
                                 </div>
                                 <div className="space-y-2">
                                     <h4 className="font-medium">README files should include:</h4>
                                     <ul className="space-y-1 text-sm text-gray-400">
-                                        <li>• What the project does</li>
-                                        <li>• How to install and use it</li>
-                                        <li>• How to contribute</li>
-                                        <li>• License information</li>
+                                        <li>ï¿½ What the project does</li>
+                                        <li>ï¿½ How to install and use it</li>
+                                        <li>ï¿½ How to contribute</li>
+                                        <li>ï¿½ License information</li>
                                     </ul>
                                 </div>
                             </CardContent>

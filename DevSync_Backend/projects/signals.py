@@ -14,3 +14,4 @@ def create_collaborator_branch(sender, instance, created, **kwargs):
         Branch.objects.get_or_create(name=instance.user.username, project=instance.project)
 
 '''
+

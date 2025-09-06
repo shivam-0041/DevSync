@@ -33,10 +33,12 @@ import { AIAssistant } from "../components/ai-assistant"
 import { QuickActions, QuickActionsHeader } from "../components/quick-actions"
 import { TeamMemberList } from "../components/team-member-list"
 import { DevToolsSidebar } from "../components/dev-tools-sidebar"
-import ProjectPage from "./ProjectPage"
+//import ProjectPage from "./ProjectPage"
 import { useEffect, useState } from "react";
 import { useAuth } from "../components/contexts/auth-context";
 import { fetchUserProfile } from '../routes/profile';
+import { fetchProjects } from "../routes/projects"
+
 
 const Dashboard = () => {
     const { user, isAuthenticated, isLoading } = useAuth();
@@ -45,6 +47,9 @@ const Dashboard = () => {
     const loggedInUser = JSON.parse(localStorage.getItem("user"))
     const [usser, setUser] = useState({});
     const [profileImage, setProfileImage] = useState<string>("/def-avatar.svg")
+    const [projects, setProjects] = useState([]);
+    const [loading, setLoading] = useState(true);
+
     useEffect(() => {
         if (!isAuthenticated || !user) {
             navigate("/login");
@@ -83,6 +88,18 @@ const Dashboard = () => {
                 });
             })
             .catch((err: any) => console.error(err));
+    }, []);
+
+    useEffect(() => {
+      fetchProjects()
+        .then((data) => {
+          setProjects(data);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error("Error fetching projects:", err);
+          setLoading(false);
+        });
     }, []);
 
 
@@ -250,7 +267,7 @@ const Dashboard = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
                </DropdownMenu>
-               <Link to={`/${loggedInUser.username}/account/settings`}>
+                <Link to={`/${loggedInUser.username}/account/settings`}>
                   <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-300">
                     <Settings className="h-5 w-5" />
                   </Button>

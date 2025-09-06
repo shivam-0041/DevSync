@@ -20,6 +20,11 @@ export default function WhiteboardPage() {
     const [isDrawing, setIsDrawing] = useState<boolean>(false)
     const [lastPosition, setLastPosition] = useState<{ x: number; y: number } | null>(null)
 
+    // const { slug, whiteboard_id } = useParams();
+    // const [whiteboard, setWhiteboard] = useState<any>(null);
+
+    
+
     // Sample collaborators data
     const collaborators = [
         { name: "John Doe", avatar: "/placeholder.svg?height=40&width=40", status: "online", initials: "JD" },

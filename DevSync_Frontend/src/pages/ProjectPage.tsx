@@ -1,4 +1,5 @@
 import {Link} from "react-router-dom"
+import { formatDistanceToNow } from "date-fns"
 import {
     Code,
     GitBranch,
@@ -17,6 +18,7 @@ import {
     Trello,
     Calendar,
     Plus,
+    Settings,
 } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
@@ -24,76 +26,140 @@ import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import { Badge } from "../components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { TaskAllocation } from "../components/task-allocation"
+import { CreateTaskModal } from "../components/createtask"
 import { useParams } from "react-router-dom";
+import { fetchProjectData } from "../routes/projects"
+import { useEffect, useState } from "react"
+
 export default function ProjectPage() {
     // In a real app, we would fetch the project data based on the ID
     //const projectId = params.id
-
+    const [loading, setLoading] = useState(true);
     const { id: projectId } = useParams();
+    const [issues, setIssues] = useState<any[]>([])
+    const loggedInUser = JSON.parse(localStorage.getItem("user"))
+    const [open, setOpen] = useState(false);
+
+    const [project, setProject] = useState<any>({
+        project_id: "",      
+        name: "",
+        description: "",
+        visibility: "private",
+        languages: "",     
+        branch_count: 0,       
+        stars: 0,
+        watchers: 0,
+        forks: 0,
+        issues_count: 0,
+        pull_requests_count: 0,
+        progress: 0,    
+        contributors: [],    
+        updated_at: "",        
+        created_at: "",         
+        slug: "",           
+        logo: "",           
+        readme: "",
+        status: "active", 
+        whiteboard_id: "",
+        chat_id: "",
+  });
+    
+
+    useEffect( () => {
+        if (projectId) {
+            setLoading(true);
+            fetchProjectData(projectId)
+            .then((data) => {
+                console.log(data);
+                setProject(data);
+                setIssues(data.issues || []);
+            })
+            .catch((err) => {
+                console.error("Error fetching project data:", err);
+            }).finally(()=> setLoading(false));
+        }
+    }, [projectId]);
+
+    useEffect(() => {
+    const fetchIssues = async () => {
+        try {
+            const res = await fetch(`/api/projects/${project.slug}/issues/`)
+            const data = await res.json()
+            setIssues(data)
+        } catch (err) {
+            console.error("Error fetching issues:", err)
+        }
+    }
+        if (project.slug) fetchIssues()
+    }, [project.slug])
+
+    if (loading) return <p>Loading project...</p>;
+    if (!project) return <p>Project not found</p>;
+
 
     // Sample project data
-    const project = {
-        id: projectId,
-        name: "E-commerce Platform",
-        description:
-            "A modern e-commerce platform built with React and Node.js. Features include user authentication, product catalog, shopping cart, and payment processing.",
-        visibility: "public",
-        language: "JavaScript",
-        languageColor: "yellow-500",
-        stars: 124,
-        watchers: 45,
-        forks: 32,
-        issues: 8,
-        pullRequests: 3,
-        lastUpdated: "2 days ago",
-        owner: {
-            name: "John Doe",
-            username: "johndoe",
-            avatar: "/placeholder.svg?height=40&width=40",
-        },
-        contributors: [
-            { initials: "JD", avatar: "/placeholder.svg?height=40&width=40" },
-            { initials: "AK", avatar: "/placeholder.svg?height=40&width=40" },
-            { initials: "MT", avatar: "/placeholder.svg?height=40&width=40" },
-            { initials: "LM", avatar: "/placeholder.svg?height=40&width=40" },
-            { initials: "RJ", avatar: "/placeholder.svg?height=40&width=40" },
-        ],
-        readme: `
-# E-commerce Platform
+//     const project = {
+//         id: projectId,
+//         name: "E-commerce Platform",
+//         description:
+//             "A modern e-commerce platform built with React and Node.js. Features include user authentication, product catalog, shopping cart, and payment processing.",
+//         visibility: "public",
+//         language: "JavaScript",
+//         languageColor: "yellow-500",
+//         stars: 124,
+//         watchers: 45,
+//         forks: 32,
+//         issues: 8,
+//         pullRequests: 3,
+//         lastUpdated: "2 days ago",
+//         owner: {
+//             name: "John Doe",
+//             username: "johndoe",
+//             avatar: "/placeholder.svg?height=40&width=40",
+//         },
+//         contributors: [
+//             { initials: "JD", avatar: "/placeholder.svg?height=40&width=40" },
+//             { initials: "AK", avatar: "/placeholder.svg?height=40&width=40" },
+//             { initials: "MT", avatar: "/placeholder.svg?height=40&width=40" },
+//             { initials: "LM", avatar: "/placeholder.svg?height=40&width=40" },
+//             { initials: "RJ", avatar: "/placeholder.svg?height=40&width=40" },
+//         ],
+//         readme: `
+// # E-commerce Platform
 
-A modern e-commerce platform built with React and Node.js.
+// A modern e-commerce platform built with React and Node.js.
 
-## Features
+// ## Features
 
-- User authentication
-- Product catalog
-- Shopping cart
-- Payment processing
-- Order management
-- Admin dashboard
+// - User authentication
+// - Product catalog
+// - Shopping cart
+// - Payment processing
+// - Order management
+// - Admin dashboard
 
-## Getting Started
+// ## Getting Started
 
-\`\`\`bash
-# Clone the repository
-git clone https://DevSync.com/johndoe/ecommerce-platform.git
+// \`\`\`bash
+// # Clone the repository
+// git clone https://DevSync.com/johndoe/ecommerce-platform.git
 
-# Install dependencies
-npm install
+// # Install dependencies
+// npm install
 
-# Start the development server
-npm run dev
-\`\`\`
+// # Start the development server
+// npm run dev
+// \`\`\`
 
-## Contributing
+// ## Contributing
 
-Please read our [contributing guidelines](CONTRIBUTING.md) before submitting a pull request.
+// Please read our [contributing guidelines](CONTRIBUTING.md) before submitting a pull request.
 
-## License
+// ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-    `,
-    }
+// This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+//     `,
+//     }
 
     // Sample tasks data
     const tasks = [
@@ -148,16 +214,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
             <header className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10">
                 <div className="container mx-auto px-4 py-3">
                     <div className="flex items-center gap-2">
-                        <Link to="/" className="flex items-center gap-2">
+                        <Link to={`/dashboard/${project.created_by?.username}`} className="flex items-center gap-2">
                             <Code className="h-6 w-6 text-emerald-500" />
                             <span className="font-bold">DevSync</span>
                         </Link>
                         <span className="text-zinc-400">/</span>
-                        <Link to={`/user/${project.owner.username}`} className="text-sm hover:underline">
-                            {project.owner.username}
+                        <Link to={`/${project.created_by?.username}/project/${project.id}`} className="text-sm hover:underline">
+                            {project.created_by?.username || "N/A"}
                         </Link>
                         <span className="text-zinc-400">/</span>
-                        <Link to={`/project/${project.id}`} className="text-sm font-medium hover:underline">
+                        <Link to={`/${project.created_by?.username}/project/${project.slug}`} className="text-sm font-medium hover:underline">
                             {project.name}
                         </Link>
                         <Badge variant={project.visibility === "public" ? "secondary" : "outline"} className="ml-2">
@@ -196,13 +262,22 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
                                         <GitBranch className="h-3.5 w-3.5 mr-1" /> main
                                     </Button>
                                     <div className="flex items-center text-xs text-zinc-500 dark:text-zinc-400">
-                                        <GitBranch className="h-3.5 w-3.5 mr-1" /> 4 branches
+                                        <GitBranch className="h-3.5 w-3.5 mr-1" /> {project.branch_count}
                                     </div>
                                     <div className="flex items-center text-xs text-zinc-500 dark:text-zinc-400">
-                                        <GitCommit className="h-3.5 w-3.5 mr-1" /> 128 commits
+                                        <GitCommit className="h-3.5 w-3.5 mr-1" /> {project.commit_count}
+                                    </div>
+                                    <div>
+                                        <Link to={`/${loggedInUser.username}/project/${project.slug}/settings`}>
+                                            <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-300">
+                                                <Settings className="h-5 w-5" />
+                                            </Button>
+                                        </Link>
                                     </div>
                                 </div>
+                                
                             </div>
+                            
 
                             <Tabs defaultValue="code">
                                 <div className="border-b border-zinc-200 dark:border-zinc-800">
@@ -217,13 +292,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
                                             value="issues"
                                             className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-500"
                                         >
-                                            <AlertCircle className="h-4 w-4 mr-2" /> Issues ({project.issues})
+                                            <AlertCircle className="h-4 w-4 mr-2" /> Issues ({project.issues_count})
                                         </TabsTrigger>
                                         <TabsTrigger
                                             value="pull-requests"
                                             className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-emerald-500"
                                         >
-                                            <GitPullRequest className="h-4 w-4 mr-2" /> Pull Requests ({project.pullRequests})
+                                            <GitPullRequest className="h-4 w-4 mr-2" /> Pull Requests ({project.pull_requests_count})
+                                            
                                         </TabsTrigger>
                                         <TabsTrigger
                                             value="discussions"
@@ -252,8 +328,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
                                             <Button variant="ghost" size="sm" className="text-xs">
                                                 <GitBranch className="h-3.5 w-3.5 mr-1" /> main
                                             </Button>
-                                            <span className="text-zinc-400">•</span>
-                                            <span className="text-zinc-500 dark:text-zinc-400">Last commit 2 days ago</span>
+                                            <Clock className="h-4 w-4 text-zinc-400" />
+                                            <span>{formatDistanceToNow(new Date(project.updated_at), { addSuffix: true })}</span>
                                         </div>
                                         <div className="flex gap-2">
                                             <Button variant="outline" size="sm">
@@ -296,35 +372,27 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
                                 </TabsContent>
 
                                 <TabsContent value="issues" className="p-4">
+                                    <Link to={`/${loggedInUser.username}/project/${project.slug}/issues/new`}>
+                                        <Button  className="m-4 flex justify-center">New Issue</Button>
+                                    </Link>
                                     <div className="space-y-4">
-                                        <IssueItem
-                                            title="Fix checkout form validation"
-                                            number={42}
-                                            status="open"
-                                            author="alexkim"
-                                            createdAt="2 days ago"
-                                            comments={5}
-                                        />
-                                        <IssueItem
-                                            title="Mobile responsiveness issues on product page"
-                                            number={41}
-                                            status="open"
-                                            author="mariatorres"
-                                            createdAt="3 days ago"
-                                            comments={3}
-                                        />
-                                        <IssueItem
-                                            title="Add pagination to product listing"
-                                            number={40}
-                                            status="open"
-                                            author="liammiller"
-                                            createdAt="5 days ago"
-                                            comments={2}
-                                        />
+                                        {issues.map((issue) => (
+                                            <IssueItem
+                                            key={issue.id}
+                                            title={issue.title}
+                                            number={issue.id}
+                                            status={issue.status}
+                                            author={issue.created_by_username}
+                                            createdAt={formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
+                                            />
+                                        ))}
                                     </div>
                                 </TabsContent>
 
                                 <TabsContent value="pull-requests" className="p-4">
+                                    <Link to={`/${loggedInUser.username}/project/${project.slug}/pull-request`}>
+                                        <Button  className="m-4 flex justify-center">New Pull Request</Button>
+                                    </Link>
                                     <div className="space-y-4">
                                         <PullRequestItem
                                             title="Implement user authentication"
@@ -358,9 +426,22 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
                                 <TabsContent value="tasks" className="p-4">
                                     <div className="flex justify-between items-center mb-6">
                                         <h3 className="text-lg font-medium">Sprint Tasks</h3>
-                                        <Button>
-                                            <Plus className="h-4 w-4 mr-2" /> Add Task
-                                        </Button>
+
+                                            <Button onClick={() => setOpen(!open)} type="button">
+                                                <Plus className="h-4 w-4 mr-2" /> Add Task
+                                            </Button>
+                                            {open && (
+                                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                                                <CreateTaskModal
+                                                    isOpen={open}
+                                                    onClose={() => setOpen(false)}
+                                                    onCreateTask={(taskData) => {
+                                                        console.log("New Task Created:", taskData);
+                                                        // You can call API here to save task
+                                                    }}
+                                                    />
+                                                </div>
+                                            )}
                                     </div>
                                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         <div>
@@ -411,7 +492,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
                                         <p className="text-zinc-500 dark:text-zinc-400 mb-4">
                                             Plan, brainstorm, and visualize ideas with your team in real-time.
                                         </p>
-                                        <Link to={`/project/${projectId}/whiteboard`}>
+                                        <Link to={`/${loggedInUser.username}/project/${project.slug}/whiteboard/${project.whiteboard_id}`}>
                                             <Button className="bg-emerald-500 hover:bg-emerald-600">Open Whiteboard</Button>
                                         </Link>
                                     </div>
@@ -546,7 +627,7 @@ function FileItem({ name, type, size, lastUpdated }) {
     )
 }
 
-function IssueItem({ title, number, status, author, createdAt, comments }) {
+function IssueItem({ title, number, status, author, createdAt}) {
     return (
         <div className="border border-zinc-200 dark:border-zinc-800 rounded-md p-4">
             <div className="flex items-start justify-between">
@@ -562,10 +643,7 @@ function IssueItem({ title, number, status, author, createdAt, comments }) {
                 </div>
                 <div className="flex items-center gap-2">
                     <Badge variant={status === "open" ? "secondary" : "outline"}>{status}</Badge>
-                    <div className="flex items-center gap-1 text-sm text-zinc-500 dark:text-zinc-400">
-                        <MessageSquare className="h-4 w-4" />
-                        {comments}
-                    </div>
+                    
                 </div>
             </div>
         </div>
@@ -639,18 +717,20 @@ function TaskItem({ task }) {
 }
 
 // Simple markdown to HTML converter (in a real app, you'd use a proper markdown library)
-function markdownToHtml(markdown) {
+function markdownToHtml(markdown?: string | null) {
+    if (!markdown) return ""; // safely handle null/undefined
+
     let html = markdown
         .replace(/^# (.*$)/gm, "<h1>$1</h1>")
         .replace(/^## (.*$)/gm, "<h2>$1</h2>")
         .replace(/^### (.*$)/gm, "<h3>$1</h3>")
-        .replace(/\*\*(.*)\*\*/gm, "<strong>$1</strong>")
-        .replace(/\*(.*)\*/gm, "<em>$1</em>")
-        .replace(/\[(.*?)\]$$(.*?)$$/gm, '<a to="$2">$1</a>')
-        .replace(/\n/gm, "<br>")
+        .replace(/\*\*(.*?)\*\*/gm, "<strong>$1</strong>")
+        .replace(/\*(.*?)\*/gm, "<em>$1</em>")
+        .replace(/\[(.*?)\]\((.*?)\)/gm, '<a href="$2">$1</a>')
+        .replace(/\n/gm, "<br>");
 
     // Handle code blocks
-    html = html.replace(/```([\s\S]*?)```/gm, (match, p1) => `<pre><code>${p1.trim()}</code></pre>`)
+    html = html.replace(/```([\s\S]*?)```/gm, (match, p1) => `<pre><code>${p1.trim()}</code></pre>`);
 
-    return html
+    return html;
 }

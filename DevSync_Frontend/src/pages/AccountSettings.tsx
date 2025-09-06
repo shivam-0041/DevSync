@@ -3,7 +3,7 @@
 import type React from "react"
 import { toast } from "sonner";
 import { useState, useEffect } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { Code, User, Shield, Bell, Globe, Github, Twitter, Linkedin, Trash2, LogOut, Check } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
@@ -22,6 +22,7 @@ export default function AccountSettings() {
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
     const [newSkill, setNewSkill] = useState("");
     const [activeTab, setActiveTab] = useState("profile");
+    const { username } = useParams<{ username: string }>();
 
     const [formData, setFormData] = useState<any>({
         avatar: null,
@@ -209,7 +210,7 @@ export default function AccountSettings() {
                 <div className="container mx-auto px-4 py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-10">
-                            <Link to="/dashboard/:username" className="flex items-center gap-2">
+                            <Link to={`/dashboard/${username}`} className="flex items-center gap-2">
                                 <Code className="h-6 w-6 text-emerald-400" />
                                 <span className="font-bold text-white">DevSync</span>
                             </Link>
@@ -220,7 +221,7 @@ export default function AccountSettings() {
                                     Dashboard
                                 </Button>
                             </Link>
-                            <Link to="/profile/:username">
+                            <Link to="/profile/username">
                                 <Avatar>
                                     <AvatarImage src={profileImage} alt="User" />
                                 </Avatar>
