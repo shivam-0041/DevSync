@@ -7,12 +7,8 @@ interface Task {
   id: string
   title: string
   status: "In Progress" | "To Do" | "Review" | "Done"
-  assignee: {
-    name: string
-    avatar?: string
-    initials: string
-  }
-  dueDate: string
+  assign_to: string
+  deadline: string
 }
 
 interface TaskAllocationProps {
@@ -56,17 +52,17 @@ export function TaskAllocation({ tasks, sprintName = "Current sprint tasks" }: T
         <div className="mt-4">
           <h4 className="text-sm font-medium mb-2">Team Members</h4>
           <div className="flex flex-wrap gap-2">
-            {Array.from(new Set(tasks.map((task) => task.assignee.name))).map((name, index) => {
-              const assignee = tasks.find((task) => task.assignee.name === name)?.assignee
-              if (!assignee) return null
+            {Array.from(new Set(tasks.map((task) => task.assign_to))).map((name, index) => {
+              const assign_to = tasks.find((task) => task.assign_to === name)?.assign_to
+              if (!assign_to) return null
 
               return (
                 <div key={index} className="flex items-center gap-1 bg-zinc-800 rounded-full px-2 py-1">
                   <Avatar className="h-6 w-6">
-                    <AvatarImage src={assignee.avatar || "/placeholder.svg"} alt={assignee.name} />
-                    <AvatarFallback className="text-xs bg-zinc-700">{assignee.initials}</AvatarFallback>
+                    <AvatarImage src={"/placeholder.svg"} alt={assign_to} />
+                    <AvatarFallback className="text-xs bg-zinc-700">{assign_to}</AvatarFallback>
                   </Avatar>
-                  <span className="text-xs">{assignee.name}</span>
+                  <span className="text-xs">{assign_to}</span>
                 </div>
               )
             })}
@@ -91,19 +87,31 @@ function TaskCard({ task }: { task: Task }) {
     Review: "text-purple-500",
     Done: "text-blue-500",
   }
+  if(task.status=="to_do"){
+    task.status="To Do"
+  }
+  else if(task.status=="in_progress"){
+    task.status="In Progress"
+  }
+  else if(task.status=="done"){
+    task.status="Done"
+  }
+  else if(task.status=="review"){
+    task.status="Review"
+  }
 
-  return (
-    <div className={`p-3 rounded-md border-l-4 ${statusColors[task.status]} bg-zinc-800/50`}>
-      <div className="flex justify-between items-start">
-        <h3 className="font-medium text-sm">{task.title}</h3>
-        <Badge variant="outline" className={`${statusTextColors[task.status]} border-none`}>
-          {task.status}
-        </Badge>
+    return (
+      <div className={`p-3 rounded-md border-l-4 ${statusColors[task.status]} bg-zinc-800/50`}>
+        <div className="flex justify-between items-start">
+          <h3 className="font-medium text-sm">{task.title}</h3>
+          <Badge variant="outline" className={`${statusTextColors[task.status]} border-none`}>
+            {task.status}
+          </Badge>
+        </div>
+        <div className="flex justify-between mt-2 text-xs text-zinc-400">
+          <div>Assigned to: {task.assign_to}</div>
+          <div>Due: {task.deadline}</div>
+        </div>
       </div>
-      <div className="flex justify-between mt-2 text-xs text-zinc-400">
-        <div>Assigned to: {task.assignee.name}</div>
-        <div>Due: {task.dueDate}</div>
-      </div>
-    </div>
-  )
+    )
 }

@@ -1,25 +1,5 @@
 # devsync/admin.py
 
-'''
-from django.contrib import admin
-from .models import (
-    Project, UserProjectRole, Branch, PullRequest, Task,
-    Commit, Activity, LanguageUsage, CodeFile, Chat, Whiteboard
-)
-
-admin.site.register(Project)
-admin.site.register(UserProjectRole)
-admin.site.register(Branch)
-admin.site.register(PullRequest)
-admin.site.register(Task)
-admin.site.register(Commit)
-admin.site.register(Activity)
-admin.site.register(LanguageUsage)
-admin.site.register(CodeFile)
-admin.site.register(Chat)
-admin.site.register(Whiteboard)
-'''
-
 from django.contrib import admin
 from .models import (
     Project,
@@ -28,6 +8,7 @@ from .models import (
     CodeFile,
     Issue,
     ProjectTask,
+    PullRequest,
 )
 
 @admin.register(Project)
@@ -71,4 +52,27 @@ class IssueAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
 
 
-admin.site.register(ProjectTask)
+@admin.register(ProjectTask)
+class ProjectTaskAdmin(admin.ModelAdmin):
+    list_display = (
+        "task_id",
+        "title",
+        "project",
+        "assign_to",
+        "priority",
+        "status",
+        "deadline",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("priority", "status", "project", "assign_to", "deadline")
+    search_fields = ("task_id", "title", "description", "assign_to__username", "project__name")
+    ordering = ("-created_at",)
+    date_hierarchy = "deadline"
+
+@admin.register(PullRequest)
+class PullRequest(admin.ModelAdmin):
+    list_display = ("id", "project", "from_branch", "to_branch", "created_by", "status", "is_draft", "created_at")
+    list_filter = ("status", "is_draft", "created_at", "project")
+    search_fields = ("project__name", "from_branch__name", "to_branch__name", "created_by__username", "message")
+    ordering = ("-created_at",)

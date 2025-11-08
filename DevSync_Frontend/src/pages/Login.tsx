@@ -87,7 +87,7 @@ export default function LoginPage() {
                                         name="password"
                                         type="password"
                                         onChange={handleChange}
-                                        placeholder="••••••••"
+                                        placeholder="ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
                                         className="bg-zinc-800 border-zinc-700 text-zinc-300 placeholder:text-zinc-500 focus-visible:ring-zinc-700"
                                     />
                                 </div>
@@ -118,7 +118,7 @@ export default function LoginPage() {
                     </CardContent>
                     <CardFooter className="flex flex-col space-y-4 border-t border-zinc-800 pt-6">
                         <p className="text-center text-sm text-zinc-400">
-                            New to DevHub?{" "}
+                            New to DevSync?{" "}
                             <Link to="/register" className="text-emerald-400 hover:text-emerald-300">
                                 Create an account
                             </Link>

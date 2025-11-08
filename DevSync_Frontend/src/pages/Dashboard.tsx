@@ -283,10 +283,10 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 ">
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar */}
-          <aside className="w-full md:w-80 space-y-6">
+          <aside className="w-full md:w-80 space-y-6 max-w-6xl mx-auto px-4">
             <Card className="bg-zinc-900 border-zinc-800">
               <CardContent className="p-4">
                 <div className="space-y-1">
@@ -332,7 +332,7 @@ const Dashboard = () => {
           </aside>
 
           {/* Main Content */}
-          <div className="flex-1">
+          <div className="flex-1 max-w-5xl mx-auto px-4">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-bold text-white">My Projects</h1>
               <QuickActionsHeader />

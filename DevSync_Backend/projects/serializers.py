@@ -51,6 +51,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     activities = serializers.SerializerMethodField()
     contributors = serializers.SerializerMethodField()
     issues = serializers.SerializerMethodField()
+    tasks = serializers.SerializerMethodField()
     commit_count = serializers.IntegerField(source='commits_count', read_only=True)
     branch_count = serializers.IntegerField(source='branches_count', read_only=True)
     issues_count = serializers.IntegerField(source='issue_count', read_only=True)
@@ -67,6 +68,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             "branches",
             "activities",
             "contributors",
+            "tasks",
             "issues",
             "readme",
             "commit_count",
@@ -138,6 +140,22 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         from .serializers import ProjectIssueSerializer  
         issues = obj.issues_list.all().order_by("-created_at")[:50]  
         return ProjectIssueSerializer(issues, many=True).data
+    
+    def get_tasks(self, obj):
+        return [
+            {
+                "id": task.id,
+                "title": task.title,
+                "description": task.description,
+                "priority": task.priority,
+                "status": task.status if hasattr(task, "status") else None,
+                "deadline": task.deadline,
+                "assign_to": task.assign_to.username if task.assign_to else None,
+                "labels": task.labels,
+                "dependencies": task.dependencies,
+            }
+            for task in obj.tasks.all()
+        ]
 
     
 
@@ -197,16 +215,8 @@ class ProjectTaskCreateSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "task_id"]
 
-
-class ProjectTaskListSerializer(serializers.ModelSerializer):
-    assign_to_name = serializers.CharField(source="assign_to.username", read_only=True)
-    project_name = serializers.CharField(source="project.title", read_only=True)
-
+class ProjectUpdateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ProjectTask
-        fields = [
-            "id", "task_id", "title", "description",
-            "priority", "status", "deadline",
-            "labels", "dependencies",
-            "assign_to_name", "project_name"
-        ]
+        model = Project
+        fields = "__all__" 
+        read_only_fields = ("project_id", "created_at", "updated_at", "slug")

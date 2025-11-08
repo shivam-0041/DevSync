@@ -10,6 +10,7 @@ import {
     FileCode,
     Folder,
     ChevronRight,
+    ChevronDown,
     Clock,
     MessageSquare,
     GitCommit,
@@ -18,18 +19,45 @@ import {
     Trello,
     Calendar,
     Plus,
+    Check,
+    CheckCircle2,
+    XCircle,
+    Shield,
+    BadgePlus,
+    Tags,
     Settings,
+    Users,
+    GitCommitIcon as CommitIcon,
 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu"
 import { Button } from "../components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import { Badge } from "../components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
+import { Input } from "../components/ui/input"
+import { Label } from "../components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
+import { Textarea } from "../components/ui/textarea"
 import { TaskAllocation } from "../components/task-allocation"
 import { CreateTaskModal } from "../components/createtask"
 import { useParams } from "react-router-dom";
 import { fetchProjectData } from "../routes/projects"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 
 export default function ProjectPage() {
     // In a real app, we would fetch the project data based on the ID
@@ -40,12 +68,67 @@ export default function ProjectPage() {
     const loggedInUser = JSON.parse(localStorage.getItem("user"))
     const [open, setOpen] = useState(false);
 
+    const [branches, setBranches] = useState<{ name: string; created_by: string }[]>([]);
+    const [branchMeta, setBranchMeta] = useState<Record<string, { parent?: string; protected?: boolean }>>({
+        main: { protected: true },
+    })
+    const [currentBranch, setCurrentBranch] = useState<string>("main")
+
+   // Dropdown search
+    
+    const [search, setSearch] = useState("")
+    const filteredBranches = useMemo(() => {
+        const q = search.trim().toLowerCase()
+        if (!q) return branches
+        return branches.filter((b) => b.toLowerCase().includes(q))
+    }, [branches, search])
+    const searchExactExists = useMemo(() => {
+        const q = search.trim().toLowerCase()
+        if (!q) return false
+        return branches.some((b) => b.toLowerCase() === q)
+    }, [branches, search])
+
+
+    // Create branch dialog state
+    const [isCreateOpen, setIsCreateOpen] = useState(false)
+    const [newBranchName, setNewBranchName] = useState("")
+    const [newBranchDescription, setNewBranchDescription] = useState("")
+    const [newBranchParent, setNewBranchParent] = useState<string | undefined>(undefined)
+    const [newBranchProtection, setNewBranchProtection] = useState<"none" | "protected">("none")
+    const [newBranchStartingPoint, setNewBranchStartingPoint] = useState<string>("current")
+    const [labels, setLabels] = useState<string[]>([])
+    const [labelInput, setLabelInput] = useState("")
+    const [createError, setCreateError] = useState<string | null>(null)
+
+
+    function handleSubmitCreate() {
+        const name = newBranchName.trim()
+        if (!name) {
+            setCreateError("Name is required.")
+            return
+        }
+        if (branches.some((b) => b.toLowerCase() === name.toLowerCase())) {
+            setCreateError("A branch with this name already exists.")
+            return
+        }
+
+        setBranches((prev) => [...prev, name])
+        setBranchMeta((prev) => ({
+        ...prev,
+        [name]: { parent: newBranchParent || undefined, protected: newBranchProtection === "protected" },
+        }))
+        // In a real app, use newBranchStartingPoint and labels to seed the branch.
+        setCurrentBranch(name)
+        setIsCreateOpen(false)
+    }
+
     const [project, setProject] = useState<any>({
         project_id: "",      
         name: "",
         description: "",
         visibility: "private",
         languages: "",     
+        branches: [],
         branch_count: 0,       
         stars: 0,
         watchers: 0,
@@ -54,6 +137,7 @@ export default function ProjectPage() {
         pull_requests_count: 0,
         progress: 0,    
         contributors: [],    
+        tasks: [],
         updated_at: "",        
         created_at: "",         
         slug: "",           
@@ -81,6 +165,12 @@ export default function ProjectPage() {
     }, [projectId]);
 
     useEffect(() => {
+        if (project?.branches) {
+            setBranches(project.branches.map((b: any) => b.name));
+        }
+    }, [project]);
+
+    useEffect(() => {
     const fetchIssues = async () => {
         try {
             const res = await fetch(`/api/projects/${project.slug}/issues/`)
@@ -95,6 +185,49 @@ export default function ProjectPage() {
 
     if (loading) return <p>Loading project...</p>;
     if (!project) return <p>Project not found</p>;
+
+    
+    
+
+    function openCreateDialog(prefill?: string) {
+        setCreateError(null)
+        const base = (prefill ?? search ?? "").trim()
+        setNewBranchName(base)
+        setNewBranchDescription("")
+        setNewBranchParent(currentBranch || undefined)
+        setNewBranchProtection("none")
+        setNewBranchStartingPoint("current")
+        setLabels([])
+        setLabelInput("")
+        setIsCreateOpen(true)
+    }
+
+  
+
+    function handleSearchKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+        if (e.key === "Enter") {
+        e.preventDefault()
+        const candidate = search.trim()
+        if (!candidate) return
+        if (!branches.some((b) => b.toLowerCase() === candidate.toLowerCase())) {
+            openCreateDialog(candidate)
+        }
+        }
+    }
+
+    function addLabel() {
+        const v = labelInput.trim()
+        if (!v) return
+        if (labels.some((l) => l.toLowerCase() === v.toLowerCase())) {
+        setLabelInput("")
+        return
+        }
+        setLabels((prev) => [...prev, v])
+        setLabelInput("")
+    }
+    function removeLabel(tag: string) {
+        setLabels((prev) => prev.filter((l) => l !== tag))
+    }
 
 
     // Sample project data
@@ -162,52 +295,52 @@ export default function ProjectPage() {
 //     }
 
     // Sample tasks data
-    const tasks = [
-        {
-            id: "1",
-            title: "Implement dropdown component",
-            status: "In Progress",
-            assignee: {
-                name: "John Doe",
-                avatar: "/placeholder.svg?height=40&width=40",
-                initials: "JD",
-            },
-            dueDate: "Tomorrow",
-        },
-        {
-            id: "2",
-            title: "Fix responsive layout issues",
-            status: "To Do",
-            assignee: {
-                name: "Sarah Liu",
-                avatar: "/placeholder.svg?height=40&width=40",
-                initials: "SL",
-            },
-            dueDate: "3 days",
-        },
-        {
-            id: "3",
-            title: "Update documentation",
-            status: "Review",
-            assignee: {
-                name: "Mike Kim",
-                avatar: "/placeholder.svg?height=40&width=40",
-                initials: "MK",
-            },
-            dueDate: "2 days",
-        },
-        {
-            id: "4",
-            title: "Add unit tests for API",
-            status: "Done",
-            assignee: {
-                name: "Alex Kim",
-                avatar: "/placeholder.svg?height=40&width=40",
-                initials: "AK",
-            },
-            dueDate: "Yesterday",
-        },
-    ]
+    // const tasks = [
+    //     {
+    //         id: "1",
+    //         title: "Implement dropdown component",
+    //         status: "In Progress",
+    //         assignee: {
+    //             name: "John Doe",
+    //             avatar: "/placeholder.svg?height=40&width=40",
+    //             initials: "JD",
+    //         },
+    //         dueDate: "Tomorrow",
+    //     },
+    //     {
+    //         id: "2",
+    //         title: "Fix responsive layout issues",
+    //         status: "To Do",
+    //         assignee: {
+    //             name: "Sarah Liu",
+    //             avatar: "/placeholder.svg?height=40&width=40",
+    //             initials: "SL",
+    //         },
+    //         dueDate: "3 days",
+    //     },
+    //     {
+    //         id: "3",
+    //         title: "Update documentation",
+    //         status: "Review",
+    //         assignee: {
+    //             name: "Mike Kim",
+    //             avatar: "/placeholder.svg?height=40&width=40",
+    //             initials: "MK",
+    //         },
+    //         dueDate: "2 days",
+    //     },
+    //     {
+    //         id: "4",
+    //         title: "Add unit tests for API",
+    //         status: "Done",
+    //         assignee: {
+    //             name: "Alex Kim",
+    //             avatar: "/placeholder.svg?height=40&width=40",
+    //             initials: "AK",
+    //         },
+    //         dueDate: "Yesterday",
+    //     },
+    // ]
 
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -236,7 +369,7 @@ export default function ProjectPage() {
             <main className="container mx-auto px-4 py-8">
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* Main Content */}
-                    <div className="flex-1">
+                    <div className="flex-1 max-w-5xl mx-auto px-4">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                             <div>
                                 <h1 className="text-2xl font-bold">{project.name}</h1>
@@ -258,9 +391,190 @@ export default function ProjectPage() {
                         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg mb-8">
                             <div className="border-b border-zinc-200 dark:border-zinc-800 p-4">
                                 <div className="flex items-center gap-2">
-                                    <Button variant="ghost" size="sm" className="text-xs">
-                                        <GitBranch className="h-3.5 w-3.5 mr-1" /> main
-                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            aria-label="Select branch"
+                                            title="Switch branch"
+                                            className="gap-1 rounded-full shadow-sm text-xs border-emerald-300/70 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800 dark:text-emerald-300 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40"
+                                        >
+                                            <GitBranch className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                            <span className="font-medium">Branch</span>
+                                            <span className="mx-1 px-1.5 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-900/60 bg-white/70 dark:bg-white/10 text-emerald-800 dark:text-emerald-200">
+                                            {currentBranch}
+                                            </span>
+                                            <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+                                        </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="start" className="w-64">
+                                        <div className="px-2 pb-2 pt-2">
+                                            <Label htmlFor="branch-search" className="sr-only">
+                                            Search branches
+                                            </Label>
+                                            <Input
+                                            id="branch-search"
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            onKeyDown={handleSearchKeyDown}
+                                            placeholder="Search branches…"
+                                            className="h-8"
+                                            />
+                                            {search.trim().length > 0 && (
+                                            <div className="mt-1 text-[11px] flex items-center gap-1.5">
+                                                {searchExactExists ? (
+                                                <>
+                                                    <XCircle className="h-3.5 w-3.5 text-amber-600" />
+                                                    <span className="text-amber-700 dark:text-amber-400">
+                                                    A branch with this exact name already exists.
+                                                    </span>
+                                                </>
+                                                ) : (
+                                                <>
+                                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                                    <span className="text-emerald-700 dark:text-emerald-400">
+                                                    Name available to create.
+                                                    </span>
+                                                </>
+                                                )}
+                                            </div>
+                                            )}
+                                        </div>
+
+                                        <div className="px-2 py-1.5 text-xs text-zinc-500 dark:text-zinc-400">Switch branch</div>
+                                        {filteredBranches.length > 0 ? (
+                                            filteredBranches.map((b) => (
+                                            <DropdownMenuItem
+                                                key={b}
+                                                onSelect={(e) => {
+                                                e.preventDefault()
+                                                setCurrentBranch(b)
+                                                }}
+                                                className="flex items-center gap-2"
+                                            >
+                                                {b === currentBranch ? (
+                                                <Check className="h-4 w-4 text-emerald-500" />
+                                                ) : (
+                                                <span className="w-4" />
+                                                )}
+                                                <span className="truncate">{b}</span>
+                                                {branchMeta[b]?.protected && (
+                                                <span className="ml-auto flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+                                                    <Shield className="h-3.5 w-3.5" /> protected
+                                                </span>
+                                                )}
+                                            </DropdownMenuItem>
+                                            ))
+                                        ) : (
+                                            <div className="px-3 py-2 text-xs text-zinc-500">No branches match “{search.trim()}”.</div>
+                                        )}
+
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onSelect={(e) => {
+                                                e.preventDefault()
+                                                if (!searchExactExists) {
+                                                    openCreateDialog();
+                                                }
+                                            }}
+                                            disabled={searchExactExists}
+                                            className="text-emerald-600 dark:text-emerald-400 focus:text-emerald-700 aria-disabled:opacity-50 aria-disabled:pointer-events-none"
+                                            aria-disabled={searchExactExists}
+                                        >
+                                            <Plus className="h-4 w-4 mr-2" /> Create new branch
+                                        </DropdownMenuItem>
+                                        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                                            <DialogContent className="sm:max-w-md">
+                                                <DialogHeader>
+                                                <DialogTitle>Create Branch</DialogTitle>
+                                                <DialogDescription>
+                                                    Fill in the details for your new branch.
+                                                </DialogDescription>
+                                                </DialogHeader>
+
+                                                {/* Error message */}
+                                                {createError && (
+                                                <p className="text-red-500 text-sm mb-2">{createError}</p>
+                                                )}
+
+                                                <form
+                                                onSubmit={(e) => {
+                                                    e.preventDefault();
+                                                    handleSubmitCreate();
+                                                }}
+                                                className="space-y-4"
+                                                >
+                                                {/* Branch name */}
+                                                <input
+                                                    type="text"
+                                                    value={newBranchName}
+                                                    onChange={(e) => setNewBranchName(e.target.value)}
+                                                    placeholder="Branch name"
+                                                    className="w-full p-2 rounded-md border dark:bg-zinc-900"
+                                                />
+
+                                                {/* Description */}
+                                                <textarea
+                                                    value={newBranchDescription}
+                                                    onChange={(e) => setNewBranchDescription(e.target.value)}
+                                                    placeholder="Description"
+                                                    className="w-full p-2 rounded-md border dark:bg-zinc-900"
+                                                />
+
+                                                {/* Labels */}
+                                                <div>
+                                                    <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={labelInput}
+                                                        onChange={(e) => setLabelInput(e.target.value)}
+                                                        placeholder="Add label"
+                                                        className="flex-1 p-2 rounded-md border dark:bg-zinc-900"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={addLabel}
+                                                        className="px-3 py-1 rounded-md bg-emerald-600 text-white"
+                                                    >
+                                                        Add
+                                                    </button>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                    {labels.map((l) => (
+                                                        <span
+                                                        key={l}
+                                                        className="bg-emerald-200 text-emerald-800 px-2 py-1 rounded-md text-sm cursor-pointer"
+                                                        onClick={() => removeLabel(l)}
+                                                        >
+                                                        {l} ×
+                                                        </span>
+                                                    ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Action buttons */}
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                    type="button"
+                                                    onClick={() => setIsCreateOpen(false)}
+                                                    className="px-3 py-1 rounded-md border"
+                                                    >
+                                                    Cancel
+                                                    </button>
+                                                    <button
+                                                    type="submit"
+                                                    className="px-3 py-1 rounded-md bg-emerald-600 text-white"
+                                                    >
+                                                    Create
+                                                    </button>
+                                                </div>
+                                                </form>
+                                            </DialogContent>
+                                            </Dialog>
+
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                     <div className="flex items-center text-xs text-zinc-500 dark:text-zinc-400">
                                         <GitBranch className="h-3.5 w-3.5 mr-1" /> {project.branch_count}
                                     </div>
@@ -273,6 +587,11 @@ export default function ProjectPage() {
                                                 <Settings className="h-5 w-5" />
                                             </Button>
                                         </Link>
+                                    </div>
+                                    <div className="flex items-center justify-between ">
+                                        <Button variant="ghost" className="text-zinc-400">
+                                            <Users className="w-4 h-4" /><Plus className="-ml-3 w-2 h-2"/>
+                                        </Button>
                                     </div>
                                 </div>
                                 
@@ -439,6 +758,7 @@ export default function ProjectPage() {
                                                         console.log("New Task Created:", taskData);
                                                         // You can call API here to save task
                                                     }}
+                                                    projectData={project}
                                                     />
                                                 </div>
                                             )}
@@ -450,8 +770,8 @@ export default function ProjectPage() {
                                                 In Progress
                                             </h4>
                                             <div className="space-y-2">
-                                                {tasks
-                                                    .filter((task) => task.status === "In Progress")
+                                                {project.tasks
+                                                    .filter((task) => task.status === "in_progress")
                                                     .map((task) => (
                                                         <TaskItem key={task.id} task={task} />
                                                     ))}
@@ -463,10 +783,10 @@ export default function ProjectPage() {
                                                 To Do
                                             </h4>
                                             <div className="space-y-2">
-                                                {tasks
-                                                    .filter((task) => task.status === "To Do")
-                                                    .map((task) => (
-                                                        <TaskItem key={task.id} task={task} />
+                                                {project.tasks
+                                                    .filter((tasks) => tasks.status === "to_do")
+                                                    .map((tasks) => (
+                                                        <TaskItem key={tasks.id} task={tasks} />
                                                     ))}
                                             </div>
                                         </div>
@@ -476,10 +796,10 @@ export default function ProjectPage() {
                                                 Review
                                             </h4>
                                             <div className="space-y-2">
-                                                {tasks
-                                                    .filter((task) => task.status === "Review")
-                                                    .map((task) => (
-                                                        <TaskItem key={task.id} task={task} />
+                                                {project.tasks
+                                                    .filter((tasks) => tasks.status === "review")
+                                                    .map((tasks) => (
+                                                        <TaskItem key={tasks.id} task={tasks} />
                                                     ))}
                                             </div>
                                         </div>
@@ -503,7 +823,7 @@ export default function ProjectPage() {
 
                     {/* Sidebar */}
                     <div className="w-full lg:w-80 space-y-6">
-                        <TaskAllocation tasks={tasks} sprintName="Current sprint tasks" />
+                        <TaskAllocation tasks={project.tasks} sprintName="Current sprint tasks" />
 
                         <Card>
                             <CardHeader className="pb-2">
@@ -699,6 +1019,18 @@ function TaskItem({ task }) {
         Review: "border-l-purple-500",
         Done: "border-l-blue-500",
     }
+    if(task.status=="to_do"){
+    task.status="To Do"
+    }
+    else if(task.status=="in_progress"){
+        task.status="In Progress"
+    }
+    else if(task.status=="done"){
+        task.status="Done"
+    }
+    else if(task.status=="review"){
+        task.status="Review"
+    }
 
     return (
         <div className={`p-3 rounded-md border-l-4 ${statusColors[task.status]} bg-white dark:bg-zinc-800 shadow-sm`}>
@@ -706,11 +1038,11 @@ function TaskItem({ task }) {
             <div className="flex justify-between mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <div className="flex items-center gap-1">
                     <Avatar className="h-4 w-4">
-                        <AvatarFallback className="text-[8px]">{task.assignee.initials}</AvatarFallback>
+                        <AvatarFallback className="text-[8px]">{task.assign_to}</AvatarFallback>
                     </Avatar>
-                    {task.assignee.name}
+                    {task.assign_to}
                 </div>
-                <div>Due: {task.dueDate}</div>
+                <div>Due: {task.deadline}</div>
             </div>
         </div>
     )
@@ -734,3 +1066,4 @@ function markdownToHtml(markdown?: string | null) {
 
     return html;
 }
+

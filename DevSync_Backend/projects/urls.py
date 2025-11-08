@@ -11,5 +11,4 @@ urlpatterns = [
     path("<slug:slug>/tasks/create/", views.TasksCreateView.as_view(),name="task-create"),
     path("<slug:slug>/whiteboard/<str:whiteboard_id>/", views.get_whiteboard, name="get_whiteboard"),
     path("<slug:slug>/whiteboard/<str:whiteboard_id>/update/", views.update_whiteboard, name="update_whiteboard"),
-   
 ]

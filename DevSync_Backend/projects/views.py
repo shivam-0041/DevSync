@@ -4,7 +4,7 @@ from .serializers import (
     ProjectListSerializer,
     ProjectDetailSerializer,
     IssueCreateSerializer,
-    ProjectTaskListSerializer,
+    #ProjectTaskListSerializer,
     ProjectTaskCreateSerializer,
     WhiteboardSerializer
 )
@@ -41,7 +41,7 @@ class ProjectDetailView(generics.RetrieveAPIView):
 
 class ProjectUpdateView(generics.UpdateAPIView):
     serializer_class = ProjectCreateSerializer  # reuse same as creation
-    lookup_field = 'project_id'
+    lookup_field = 'slug'
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -86,7 +86,6 @@ class IssueCreateView(generics.CreateAPIView):
 
 class TasksCreateView(generics.CreateAPIView):
     queryset = ProjectTask.objects.all()
-    serializer_class = ProjectTaskListSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, slug):

@@ -196,7 +196,7 @@ class PullRequest(models.Model):
     is_draft = models.BooleanField(default=False)
     
     def __str__(self):
-        return f"{self.user} - {self.project} ({self.role})"
+        return f"PR: {self.from_branch} -> {self.to_branch} | {self.project} | {self.status}"
 
 
 # ============================
@@ -231,6 +231,7 @@ class ProjectTask(models.Model):
         ("in_progress", "In Progress"),
         ("to_do", "To Do"),
         ("review", "Review"),
+        ("done", "Done"),
     ]
 
     task_id = models.CharField(

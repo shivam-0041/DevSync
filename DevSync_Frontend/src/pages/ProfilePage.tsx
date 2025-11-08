@@ -214,9 +214,11 @@ export default function ProfilePage() {
               <h1 className="text-2xl font-bold">{user.name}</h1>
               <p className="text-zinc-500 dark:text-zinc-400 mb-4">@{user.username}</p>
               <p className="text-sm mb-4">{user.bio}</p>
+              <Link to={`/${user.username}/account/settings`} className="w-full">
               <Button className="w-full bg-emerald-500 hover:bg-emerald-600">
                 <Edit className="h-4 w-4 mr-2" /> Edit Profile
               </Button>
+            </Link>
             </div>
 
             <Card>

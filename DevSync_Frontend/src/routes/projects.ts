@@ -177,6 +177,30 @@ export async function createTask(slug,formData){
     }
 }
 
+export const updateProject = async (formData, slug) => {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false };
+        }
+        
+        
+        const response = await axios.put(`${BASE_URL}${slug}/update/`, formData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        toast.success("Project updated successfully!");
+        return { success: true, data: response.data };
+    } catch (error) {
+        console.error("Update failed:", error.response?.data || error.message);
+        toast.error("Failed to update project");
+        return { success: false };
+    }
+};
 
 // export async function fetchWhiteboard(slug, whiteboard_id) {
 

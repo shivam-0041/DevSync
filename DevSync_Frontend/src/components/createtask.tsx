@@ -17,6 +17,7 @@ import { DialogDescription } from "@radix-ui/react-dialog"
 import { createTask } from "../routes/projects"
 import { toast } from "sonner";
 import { useNavigate,useParams } from "react-router-dom"
+import { ProjectCard } from "./project-card"
 
 interface TaskData {
   project:string,
@@ -37,7 +38,7 @@ interface CreateTaskModalProps {
   onCreateTask: (task: TaskData) => void
 }
 
-export function CreateTaskModal({ isOpen, onClose, onCreateTask }: CreateTaskModalProps) {
+export function CreateTaskModal({ isOpen, onClose, onCreateTask, projectData }: CreateTaskModalProps) {
   const navigate = useNavigate();
   const { id, username } = useParams<{ id: string; username: string }>(); 
   
@@ -59,13 +60,13 @@ export function CreateTaskModal({ isOpen, onClose, onCreateTask }: CreateTaskMod
   const [newDependency, setNewDependency] = useState("")
 
   // Mock data for team members
-  const teamMembers = [
-    { name: "John Doe", username: "johndoe", avatar: "/placeholder.svg", initials: "JD", role: "Frontend Developer" },
-    { name: "Sarah Liu", username: "sarahliu", avatar: "/placeholder.svg", initials: "SL", role: "Backend Developer" },
-    { name: "Mike Kim", username: "mikekim", avatar: "/placeholder.svg", initials: "MK", role: "UI/UX Designer" },
-    { name: "Alex Johnson", username: "alexj", avatar: "/placeholder.svg", initials: "AJ", role: "DevOps Engineer" },
-    { name: "Emma Wilson", username: "emmaw", avatar: "/placeholder.svg", initials: "EW", role: "QA Engineer" },
-  ]
+  // const teamMembers = [
+  //   { name: "John Doe", username: "johndoe", avatar: "/placeholder.svg", initials: "JD", role: "Frontend Developer" },
+  //   { name: "Sarah Liu", username: "sarahliu", avatar: "/placeholder.svg", initials: "SL", role: "Backend Developer" },
+  //   { name: "Mike Kim", username: "mikekim", avatar: "/placeholder.svg", initials: "MK", role: "UI/UX Designer" },
+  //   { name: "Alex Johnson", username: "alexj", avatar: "/placeholder.svg", initials: "AJ", role: "DevOps Engineer" },
+  //   { name: "Emma Wilson", username: "emmaw", avatar: "/placeholder.svg", initials: "EW", role: "QA Engineer" },
+  // ]
 
   const predefinedLabels = ["frontend", "backend", "design", "testing", "documentation", "bug-fix", "feature"]
 
@@ -166,7 +167,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreateTask }: CreateTaskMod
     }
   }
 
-  const selectedMember = teamMembers.find((member) => member.username === taskData.assignee)
+  const selectedMember = projectData.contributors.find((member) => member.username === taskData.assignee)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -223,12 +224,12 @@ export function CreateTaskModal({ isOpen, onClose, onCreateTask }: CreateTaskMod
                   <SelectValue placeholder="Select team member" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-600">
-                  {teamMembers.map((member) => (
+                  {projectData.contributors.map((member) => (
                     <SelectItem key={member.username} value={member.username}>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
                           <AvatarImage src={member.avatar || "/placeholder.svg"} />
-                          <AvatarFallback className="text-xs bg-zinc-700">{member.initials}</AvatarFallback>
+                          <AvatarFallback className="text-xs bg-zinc-700">{member[0]}</AvatarFallback>
                         </Avatar>
                         <div>
                           <div className="font-medium">{member.name}</div>
