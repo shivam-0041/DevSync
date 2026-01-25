@@ -389,5 +389,5 @@ dist-ssr
 *.sw?
 
 #Extra folder
-myenv
+./myenv
 media/avatars/*
