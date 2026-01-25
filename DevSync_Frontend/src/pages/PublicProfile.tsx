@@ -30,6 +30,8 @@ import {
 } from "lucide-react"
 import { useAuth } from "../components/contexts/auth-context"
 import { Activity } from "lucide-react" // Import Activity icon
+import { fetchPublicProfile } from '../routes/profile';
+import { fetchPublicProjects } from '../routes/projects';
 
 interface UserProfile {
     username: string
@@ -40,134 +42,136 @@ interface UserProfile {
     location?: string
     website?: string
     company?: string
-    joinDate: string
+    joinedDate: string
     followers: number
     following: number
-    publicRepos: number
-    isFollowing?: boolean
+    repositories: number
+    contributions: number
+    skills?: string[]
     socialLinks?: {
         github?: string
         twitter?: string
         linkedin?: string
+        personal_website?: string
     }
 }
 
 interface Repository {
-    id: string
     name: string
     description?: string
-    language: string
+    languages: string
     stars: number
     forks: number
-    isPrivate: boolean
-    updatedAt: string
+    visibility: string
+    slug: string
+    updated_at: string
 }
 
 // Mock data - in a real app, this would come from an API
-const mockUsers: Record<string, UserProfile> = {
-    johndoe: {
-        username: "johndoe",
-        name: "John Doe",
-        email: "john@example.com",
-        avatar: "/placeholder.svg?height=120&width=120",
-        bio: "Full-stack developer passionate about open source and modern web technologies. Building the future one commit at a time.",
-        location: "San Francisco, CA",
-        website: "https://johndoe.dev",
-        company: "TechCorp Inc.",
-        joinDate: "2020-03-15",
-        followers: 1234,
-        following: 567,
-        publicRepos: 89,
-        isFollowing: false,
-        socialLinks: {
-            github: "https://github.com/johndoe",
-            twitter: "https://twitter.com/johndoe",
-            linkedin: "https://linkedin.com/in/johndoe",
-        },
-    },
-    janedoe: {
-        username: "janedoe",
-        name: "Jane Doe",
-        email: "jane@example.com",
-        avatar: "/placeholder.svg?height=120&width=120",
-        bio: "Frontend architect and UI/UX enthusiast. Love creating beautiful and accessible user experiences.",
-        location: "New York, NY",
-        website: "https://janedoe.design",
-        company: "Design Studio",
-        joinDate: "2019-08-22",
-        followers: 2156,
-        following: 432,
-        publicRepos: 156,
-        isFollowing: true,
-        socialLinks: {
-            github: "https://github.com/janedoe",
-            twitter: "https://twitter.com/janedoe",
-        },
-    },
-}
+// const mockUsers: Record<string, UserProfile> = {
+//     johndoe: {
+//         username: "johndoe",
+//         name: "John Doe",
+//         email: "john@example.com",
+//         avatar: "/placeholder.svg?height=120&width=120",
+//         bio: "Full-stack developer passionate about open source and modern web technologies. Building the future one commit at a time.",
+//         location: "San Francisco, CA",
+//         website: "https://johndoe.dev",
+//         company: "TechCorp Inc.",
+//         joinDate: "2020-03-15",
+//         followers: 1234,
+//         following: 567,
+//         publicRepos: 89,
+//         isFollowing: false,
+//         socialLinks: {
+//             github: "https://github.com/johndoe",
+//             twitter: "https://twitter.com/johndoe",
+//             linkedin: "https://linkedin.com/in/johndoe",
+//         },
+//     },
+//     janedoe: {
+//         username: "janedoe",
+//         name: "Jane Doe",
+//         email: "jane@example.com",
+//         avatar: "/placeholder.svg?height=120&width=120",
+//         bio: "Frontend architect and UI/UX enthusiast. Love creating beautiful and accessible user experiences.",
+//         location: "New York, NY",
+//         website: "https://janedoe.design",
+//         company: "Design Studio",
+//         joinDate: "2019-08-22",
+//         followers: 2156,
+//         following: 432,
+//         publicRepos: 156,
+//         isFollowing: true,
+//         socialLinks: {
+//             github: "https://github.com/janedoe",
+//             twitter: "https://twitter.com/janedoe",
+//         },
+//     },
+// }
 
-const mockRepositories: Repository[] = [
-    {
-        id: "1",
-        name: "awesome-react-components",
-        description: "A collection of reusable React components for modern web applications",
-        language: "TypeScript",
-        stars: 1234,
-        forks: 89,
-        isPrivate: false,
-        updatedAt: "2024-01-15",
-    },
-    {
-        id: "2",
-        name: "api-gateway-service",
-        description: "Microservices API gateway built with Node.js and Express",
-        language: "JavaScript",
-        stars: 567,
-        forks: 45,
-        isPrivate: false,
-        updatedAt: "2024-01-10",
-    },
-    {
-        id: "3",
-        name: "ml-data-pipeline",
-        description: "Machine learning data processing pipeline using Python and Apache Airflow",
-        language: "Python",
-        stars: 234,
-        forks: 23,
-        isPrivate: false,
-        updatedAt: "2024-01-08",
-    },
-]
+// const mockRepositories: Repository[] = [
+//     {
+//         id: "1",
+//         name: "awesome-react-components",
+//         description: "A collection of reusable React components for modern web applications",
+//         language: "TypeScript",
+//         stars: 1234,
+//         forks: 89,
+//         isPrivate: false,
+//         updatedAt: "2024-01-15",
+//     },
+//     {
+//         id: "2",
+//         name: "api-gateway-service",
+//         description: "Microservices API gateway built with Node.js and Express",
+//         language: "JavaScript",
+//         stars: 567,
+//         forks: 45,
+//         isPrivate: false,
+//         updatedAt: "2024-01-10",
+//     },
+//     {
+//         id: "3",
+//         name: "ml-data-pipeline",
+//         description: "Machine learning data processing pipeline using Python and Apache Airflow",
+//         language: "Python",
+//         stars: 234,
+//         forks: 23,
+//         isPrivate: false,
+//         updatedAt: "2024-01-08",
+//     },
+// ]
 
-const mockActivityItems: {
-    id: string
-    type: "commit" | "pr" | "issue" | "fork" | "star"
-    repository: string
-    description: string
-    timestamp: string
-}[] = [
-        {
-            id: "1",
-            type: "commit",
-            repository: "awesome-react-components",
-            description: "Added new Button component with accessibility features",
-            timestamp: "2024-01-15T10:30:00Z",
-        },
-        {
-            id: "2",
-            type: "pr",
-            repository: "api-gateway-service",
-            description: "Opened pull request: Implement rate limiting middleware",
-            timestamp: "2024-01-14T15:45:00Z",
-        },
-        {
-            id: "3",
-            type: "star",
-            repository: "ml-data-pipeline",
-            description: "Starred repository: tensorflow/tensorflow",
-            timestamp: "2024-01-13T09:20:00Z",
-        },
-    ]
+// const mockActivityItems: {
+//     id: string
+//     type: "commit" | "pr" | "issue" | "fork" | "star"
+//     repository: string
+//     description: string
+//     timestamp: string
+// }[] = [
+//         {
+//             id: "1",
+//             type: "commit",
+//             repository: "awesome-react-components",
+//             description: "Added new Button component with accessibility features",
+//             timestamp: "2024-01-15T10:30:00Z",
+//         },
+//         {
+//             id: "2",
+//             type: "pr",
+//             repository: "api-gateway-service",
+//             description: "Opened pull request: Implement rate limiting middleware",
+//             timestamp: "2024-01-14T15:45:00Z",
+//         },
+//         {
+//             id: "3",
+//             type: "star",
+//             repository: "ml-data-pipeline",
+//             description: "Starred repository: tensorflow/tensorflow",
+//             timestamp: "2024-01-13T09:20:00Z",
+//         },
+//     ]
 
 const getLanguageColor = (language: string): string => {
     const colors: Record<string, string> = {
@@ -202,8 +206,9 @@ const getRelativeTime = (dateString: string): string => {
 
 export default function ProfilePage() {
     const params = useParams()
-    //const { user: currentUser } = useAuth()
+    const { user: currentUser } = useAuth()
     const username = params.username as string
+    const loggedInUser = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user") || "{}") : {};
 
     const [profile, setProfile] = useState<UserProfile | null>(null)
     const [repositories, setRepositories] = useState<Repository[]>([])
@@ -221,19 +226,38 @@ export default function ProfilePage() {
 
     const navigate = useNavigate()
 
+    const isOwnProfile = currentUser && currentUser.username === username
+
     useEffect(() => {
-        // Simulate API call
-        setTimeout(() => {
-            const userProfile = mockUsers[username]
-            if (userProfile) {
-                setProfile(userProfile)
-                setRepositories(mockRepositories)
-                setActivity(mockActivityItems)
-                setIsFollowing(userProfile.isFollowing || false)
+        const fetchUserData = async () => {
+            try {
+                setLoading(true)
+                // Fetch public profile data
+                const profileData = await fetchPublicProfile(username)
+                setProfile(profileData)
+
+                // Fetch user's public repositories
+                const reposData = await fetchPublicProjects(username)
+                setRepositories(reposData)
+
+                // TODO: Fetch user's activities when endpoint is available
+                // const activitiesData = await fetchActivities(username)
+                // setActivity(activitiesData)
+                setActivity([]) // Empty for now
+
+                setLoading(false)
+            } catch (error) {
+                console.error('Error fetching user data:', error)
+                setLoading(false)
+                // Handle error - maybe redirect to 404 or show error message
+                navigate('/404') // or show error state
             }
-            setLoading(false)
-        }, 1000)
-    }, [username])
+        }
+
+        if (username) {
+            fetchUserData()
+        }
+    }, [username, navigate])
 
     const handleFollowToggle = () => {
         setIsFollowing(!isFollowing)
@@ -296,7 +320,7 @@ export default function ProfilePage() {
 
                             <div className="flex gap-2 mt-4 sm:mt-0">
                                 {isOwnProfile ? (
-                                    <Button onClick={() => navigate("/settings/profile")} variant="outline" className="border-gray-600">
+                                    <Button onClick={() => navigate(`/${loggedInUser.username}/account/settings`)} variant="outline" className="border-gray-600">
                                         <Settings className="h-4 w-4 mr-2" />
                                         Edit Profile
                                     </Button>
@@ -357,7 +381,7 @@ export default function ProfilePage() {
                             )}
                             <div className="flex items-center gap-1">
                                 <Calendar className="h-4 w-4" />
-                                Joined {formatDate(profile.joinDate)}
+                                Joined {formatDate(profile.joinedDate)}
                             </div>
                         </div>
 
@@ -419,7 +443,7 @@ export default function ProfilePage() {
                             className="data-[state=active]:bg-emerald-500 data-[state=active]:text-black"
                         >
                             <BookOpen className="h-4 w-4 mr-2" />
-                            Repositories ({profile.publicRepos})
+                            Repositories ({repositories.length})
                         </TabsTrigger>
                         <TabsTrigger value="activity" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-black">
                             <Activity className="h-4 w-4 mr-2" />
@@ -490,7 +514,7 @@ export default function ProfilePage() {
                                             <div className="flex-1">
                                                 <p className="text-sm">
                                                     <span className="text-emerald-400">{item.repository}</span>
-                                                    <span className="text-gray-400 mx-2">•</span>
+                                                    <span className="text-gray-400 mx-2">ï¿½</span>
                                                     {item.description}
                                                 </p>
                                                 <p className="text-xs text-gray-500 mt-1">{getRelativeTime(item.timestamp)}</p>

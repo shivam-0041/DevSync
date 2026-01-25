@@ -43,6 +43,22 @@ export const fetchUserProfile = async () => {
 };
 
 
+export const fetchPublicProfile = async (username: string) => {
+    try {
+        const response = await axios.get(`${BASE_URL}users/${username}/`, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching public profile:', error.response?.data || error.message);
+        return null;
+    }
+};
+
+
 export const updateUserProfile = async (formData) => {
     try {
         const token = localStorage.getItem("access");

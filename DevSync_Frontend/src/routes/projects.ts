@@ -1,5 +1,6 @@
 import axios from "axios";
 import { toast } from "sonner"
+import type { DashboardTask } from "../components/task-allocation"
 
 const BASE_URL = "http://localhost:8000/api/projects/"; // adjust if needed
 
@@ -72,6 +73,20 @@ export async function fetchProjects() {
         return response.data;
     } catch (error) {
         console.error("Failed to fetch projects:", error);
+        throw error;
+    }
+}
+
+export async function fetchPublicProjects(username: string) {
+    try {
+        const response = await axios.get(`${BASE_URL}public/${username}/`, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Failed to fetch public projects:", error);
         throw error;
     }
 }
@@ -201,6 +216,34 @@ export const updateProject = async (formData, slug) => {
         return { success: false };
     }
 };
+
+export async function fetchMyTasks(_username: string): Promise<DashboardTask[]> {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return [];
+        }
+
+        const res = await fetch(`${BASE_URL}tasks/my/`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!res.ok) {
+            throw new Error("Failed to fetch assigned tasks");
+        }
+
+        const data = await res.json();
+        return Array.isArray(data) ? data : data.results || [];
+    } catch (error) {
+        console.error("Failed to fetch tasks:", error);
+        return [];
+    }
+}
+
 
 // export async function fetchWhiteboard(slug, whiteboard_id) {
 

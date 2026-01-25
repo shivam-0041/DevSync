@@ -203,7 +203,6 @@ export default function AccountSettings() {
 
     
 
-
     return (
         <div className="min-h-screen bg-zinc-950">
             <header className="bg-zinc-900 border-b border-zinc-800 sticky top-0 z-10">
@@ -216,7 +215,7 @@ export default function AccountSettings() {
                             </Link>
                         </div>
                         <div className="flex items-center gap-4">
-                            <Link to="/dashboard">
+                            <Link to={`/dashboard/${username}`}>
                                 <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
                                     Dashboard
                                 </Button>

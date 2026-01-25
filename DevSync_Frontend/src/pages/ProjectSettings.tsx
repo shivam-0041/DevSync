@@ -19,6 +19,9 @@ import {
   Edit,
   Key,
   Database,
+  Search,
+  UserPlus,
+  Mail,
 } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
@@ -32,6 +35,31 @@ import { Separator } from "../components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import { fetchProjectData } from "../routes/projects"
 import { useParams } from "react-router-dom";
+
+// Types for collaborator functionality
+interface User {
+  id: string;
+  username: string;
+  name: string;
+  avatar?: string;
+  email?: string;
+}
+
+interface ProjectMember {
+  id: string;
+  user: User;
+  role: 'read' | 'write' | 'admin' | 'owner';
+  joined_at: string;
+}
+
+interface CollaboratorInvite {
+  id: string;
+  invited_user: User;
+  invited_by: User;
+  role: 'read' | 'write' | 'admin';
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: string;
+}
 
 export default function ProjectSettings() {
 
@@ -80,6 +108,14 @@ export default function ProjectSettings() {
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
     const [errors, setErrors] = useState<FormErrors>({})
 
+    // Collaborator search and invite state
+    const [searchQuery, setSearchQuery] = useState("")
+    const [searchResults, setSearchResults] = useState<User[]>([])
+    const [isSearching, setIsSearching] = useState(false)
+    const [selectedRole, setSelectedRole] = useState<'read' | 'write' | 'admin'>('write')
+    const [pendingInvites, setPendingInvites] = useState<CollaboratorInvite[]>([])
+    const [isInviting, setIsInviting] = useState(false)
+
 
     const handleSave = () => {
         e.preventDefault();
@@ -93,6 +129,76 @@ export default function ProjectSettings() {
         } else {
             setSaveStatus("idle");
             
+        }
+    }
+
+    // Collaborator search functionality
+    const searchUsers = useCallback(async (query: string) => {
+        if (!query.trim()) {
+            setSearchResults([])
+            return
+        }
+
+        setIsSearching(true)
+        try {
+            const response = await fetch(`http://localhost:8000/api/projects/users/search?q=${encodeURIComponent(query)}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                },
+            })
+            if (response.ok) {
+                const users = await response.json()
+                setSearchResults(users)
+            }
+        } catch (error) {
+            console.error('Error searching users:', error)
+            setSearchResults([])
+        } finally {
+            setIsSearching(false)
+        }
+    }, [])
+
+    // Debounced search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            searchUsers(searchQuery)
+        }, 300)
+
+        return () => clearTimeout(timer)
+    }, [searchQuery, searchUsers])
+
+    // Send collaborator invite
+    const sendInvite = async (user: User) => {
+        setIsInviting(true)
+        try {
+            const response = await fetch(`http://localhost:8000/api/projects/${project.slug}/collaborators/invite/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                },
+                body: JSON.stringify({
+                    invited_user: user.id,
+                    role: selectedRole,
+                    project: project.project_id,
+                }),
+            })
+
+            if (response.ok) {
+                const invite = await response.json()
+                setPendingInvites(prev => [...prev, invite])
+                setSearchQuery("")
+                setSearchResults([])
+                // Show success message
+                console.log('Invite sent successfully')
+            } else {
+                const error = await response.json()
+                console.error('Error sending invite:', error)
+            }
+        } catch (error) {
+            console.error('Error sending invite:', error)
+        } finally {
+            setIsInviting(false)
         }
     }
 
@@ -402,13 +508,30 @@ export default function ProjectSettings() {
                 <Card className="bg-zinc-900 border-zinc-800">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-white text-base">Invite Collaborator</CardTitle>
-                    <CardDescription className="text-zinc-400 text-sm">Add new people to this project</CardDescription>
+                    <CardDescription className="text-zinc-400 text-sm">Search and add new people to this project</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex gap-2">
-                      <Input placeholder="Enter username or email" className="bg-zinc-800 border-zinc-700 text-white" />
-                      <Select defaultValue="write">
-                        <SelectTrigger className="w-24 bg-zinc-800 border-zinc-700 text-white">
+                  <CardContent className="space-y-4">
+                    {/* Search Input */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                      <Input
+                        placeholder="Search users by username..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 bg-zinc-800 border-zinc-700 text-white placeholder-zinc-400"
+                      />
+                      {isSearching && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Role Selection */}
+                    <div className="flex items-center gap-2">
+                      <Label className="text-zinc-300 text-sm">Role:</Label>
+                      <Select value={selectedRole} onValueChange={(value: 'read' | 'write' | 'admin') => setSelectedRole(value)}>
+                        <SelectTrigger className="w-32 bg-zinc-800 border-zinc-700 text-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-zinc-800 border-zinc-700">
@@ -417,10 +540,75 @@ export default function ProjectSettings() {
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
-                        Invite
-                      </Button>
                     </div>
+
+                    {/* Search Results */}
+                    {searchResults.length > 0 && (
+                      <div className="border border-zinc-700 rounded-md max-h-48 overflow-y-auto">
+                        {searchResults.map((user) => (
+                          <div key={user.id} className="flex items-center justify-between p-3 border-b border-zinc-700 last:border-b-0 hover:bg-zinc-800/50">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={user.avatar} alt={user.name} />
+                                <AvatarFallback className="bg-zinc-700 text-zinc-300 text-xs">
+                                  {user.name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-white text-sm font-medium">{user.name}</p>
+                                <p className="text-zinc-400 text-xs">@{user.username}</p>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => sendInvite(user)}
+                              disabled={isInviting}
+                              className="bg-emerald-600 hover:bg-emerald-700"
+                            >
+                              {isInviting ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              ) : (
+                                <>
+                                  <UserPlus className="h-3 w-3 mr-1" />
+                                  Invite
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Pending Invites */}
+                    {pendingInvites.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-zinc-300 text-sm font-medium">Pending Invites</h4>
+                        {pendingInvites.map((invite) => (
+                          <div key={invite.id} className="flex items-center justify-between p-2 bg-zinc-800/50 rounded-md">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={invite.invited_user.avatar} alt={invite.invited_user.name} />
+                                <AvatarFallback className="bg-zinc-700 text-zinc-300 text-xs">
+                                  {invite.invited_user.name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-zinc-300 text-xs">{invite.invited_user.name}</p>
+                                <p className="text-zinc-500 text-xs">Invited as {invite.role}</p>
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              <Mail className="h-3 w-3 mr-1" />
+                              Pending
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {searchQuery && searchResults.length === 0 && !isSearching && (
+                      <p className="text-zinc-400 text-sm text-center py-4">No users found matching "{searchQuery}"</p>
+                    )}
                   </CardContent>
                 </Card>
               </div>

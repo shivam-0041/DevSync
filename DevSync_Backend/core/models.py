@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings  # To import RegisteredUser dynamically
+from authentication.models import RegisteredUser  # Import the RegisteredUser model
 
 # Profile model linked to your RegisteredUser model in authentication app
 class Profile(models.Model):
@@ -30,6 +31,10 @@ class Profile(models.Model):
 
     # Skills/Tech stack
     skills = models.JSONField(blank=True, default=list)
+
+    @property
+    def joined_at(self):
+        return self.user.created_at
 
     def __str__(self):
         return f"{self.user.username}'s Profile"

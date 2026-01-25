@@ -163,13 +163,15 @@ export default function ProjectPage() {
             }).finally(()=> setLoading(false));
         }
     }, [projectId]);
-
+    
+    //Branches data 
     useEffect(() => {
         if (project?.branches) {
             setBranches(project.branches.map((b: any) => b.name));
         }
     }, [project]);
 
+    //Project Issues
     useEffect(() => {
     const fetchIssues = async () => {
         try {

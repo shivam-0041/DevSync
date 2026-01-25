@@ -1,13 +1,13 @@
 "use client"
 
-import React, { useState, useCallback, useMemo } from "react"
+import React, { useState, useCallback } from "react"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Switch } from "../components/ui/switch"
 import { Label } from "../components/ui/label"
-import { Bell, Code, MessageSquare, GitPullRequest, Users, Clock, CheckCircle2 } from "lucide-react"
-import AuthGuard from "../components/auth-guard"
+import { Bell, Clock, CheckCircle2 } from "lucide-react"
+import { useNotifications } from "../components/contexts/notifications-context"
 
 interface Notification {
     id: number
@@ -38,58 +38,7 @@ interface NotificationSettings {
 }
 
 const NotificationsPage: React.FC = () => {
-    const [notifications, setNotifications] = useState<Notification[]>([
-        {
-            id: 1,
-            type: "mention",
-            read: false,
-            title: "You were mentioned in a comment",
-            message: "Alex mentioned you in a comment on the 'User Authentication' task.",
-            time: "10 minutes ago",
-            project: "DevSync Web App",
-            icon: <MessageSquare className="h-5 w-5" />,
-        },
-        {
-            id: 2,
-            type: "pull-request",
-            read: false,
-            title: "New pull request requires your review",
-            message: "Sarah created a pull request 'Add user settings page' and requested your review.",
-            time: "1 hour ago",
-            project: "DevSync Web App",
-            icon: <GitPullRequest className="h-5 w-5" />,
-        },
-        {
-            id: 3,
-            type: "commit",
-            read: true,
-            title: "New commits pushed to main",
-            message: "Michael pushed 5 commits to the main branch.",
-            time: "3 hours ago",
-            project: "DevSync API",
-            icon: <Code className="h-5 w-5" />,
-        },
-        {
-            id: 4,
-            type: "team",
-            read: true,
-            title: "New team member joined",
-            message: "Emma Wilson joined the DevSync team.",
-            time: "Yesterday",
-            project: "DevSync Organization",
-            icon: <Users className="h-5 w-5" />,
-        },
-        {
-            id: 5,
-            type: "mention",
-            read: true,
-            title: "You were mentioned in a task",
-            message: "David assigned you a task 'Implement password reset functionality'.",
-            time: "2 days ago",
-            project: "DevSync Web App",
-            icon: <MessageSquare className="h-5 w-5" />,
-        },
-    ])
+    const { notifications, markAsRead, markAllAsRead, deleteNotification, unreadCount } = useNotifications()
 
     const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
         email: {
@@ -108,19 +57,7 @@ const NotificationsPage: React.FC = () => {
         },
     })
 
-    const markAsRead = useCallback((id: number) => {
-        setNotifications((prev) =>
-            prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
-        )
-    }, [])
-
-    const markAllAsRead = useCallback(() => {
-        setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })))
-    }, [])
-
-    const deleteNotification = useCallback((id: number) => {
-        setNotifications((prev) => prev.filter((notification) => notification.id !== id))
-    }, [])
+    // notification actions come from Notifications context (markAsRead, markAllAsRead, deleteNotification)
 
     const toggleSetting = useCallback((category: keyof NotificationSettings, setting: string) => {
         setNotificationSettings((prev) => ({
@@ -132,13 +69,7 @@ const NotificationsPage: React.FC = () => {
         }))
     }, [])
 
-    const unreadCount = useMemo(() => notifications.filter((notification) => !notification.read).length, [notifications])
-
-    const NotificationCard: React.FC<{
-        notification: Notification
-        onMarkAsRead: (id: number) => void
-        onDelete: (id: number) => void
-    }> = React.memo(({ notification, onMarkAsRead, onDelete }) => (
+    const NotificationCard: React.FC<{ notification: Notification }> = React.memo(({ notification }) => (
         <Card
             className={`border-gray-800 ${!notification.read ? "bg-gray-900/70 border-l-4 border-l-emerald-500" : "bg-gray-900/50"
                 }`}
@@ -158,7 +89,7 @@ const NotificationsPage: React.FC = () => {
                             </h3>
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => onDelete(notification.id)}
+                                    onClick={() => deleteNotification(notification.id)}
                                     className="text-gray-400 hover:text-gray-300"
                                     aria-label="Delete notification"
                                 >
@@ -193,7 +124,7 @@ const NotificationsPage: React.FC = () => {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 text-xs text-emerald-500 hover:text-emerald-400"
-                                    onClick={() => onMarkAsRead(notification.id)}
+                                    onClick={() => markAsRead(notification.id)}
                                 >
                                     Mark as read
                                 </Button>
@@ -276,13 +207,8 @@ const NotificationsPage: React.FC = () => {
                     <TabsContent value="all" className="mt-6">
                         <div className="space-y-4">
                             {notifications.length > 0 ? (
-                                notifications.map((notification) => (
-                                    <NotificationCard
-                                        key={notification.id}
-                                        notification={notification}
-                                        onMarkAsRead={markAsRead}
-                                        onDelete={deleteNotification}
-                                    />
+                                notifications.map((notification: Notification) => (
+                                    <NotificationCard key={notification.id} notification={notification} />
                                 ))
                             ) : (
                                 <EmptyState message="No notifications to display" />
@@ -292,16 +218,11 @@ const NotificationsPage: React.FC = () => {
 
                     <TabsContent value="unread" className="mt-6">
                         <div className="space-y-4">
-                            {notifications.filter((n) => !n.read).length > 0 ? (
+                            {notifications.filter((n: Notification) => !n.read).length > 0 ? (
                                 notifications
-                                    .filter((notification) => !notification.read)
-                                    .map((notification) => (
-                                        <NotificationCard
-                                            key={notification.id}
-                                            notification={notification}
-                                            onMarkAsRead={markAsRead}
-                                            onDelete={deleteNotification}
-                                        />
+                                    .filter((notification: Notification) => !notification.read)
+                                    .map((notification: Notification) => (
+                                        <NotificationCard key={notification.id} notification={notification} />
                                     ))
                             ) : (
                                 <EmptyState message="No unread notifications" />
@@ -311,16 +232,11 @@ const NotificationsPage: React.FC = () => {
 
                     <TabsContent value="mentions" className="mt-6">
                         <div className="space-y-4">
-                            {notifications.filter((n) => n.type === "mention").length > 0 ? (
+                            {notifications.filter((n: Notification) => n.type === "mention").length > 0 ? (
                                 notifications
-                                    .filter((notification) => notification.type === "mention")
-                                    .map((notification) => (
-                                        <NotificationCard
-                                            key={notification.id}
-                                            notification={notification}
-                                            onMarkAsRead={markAsRead}
-                                            onDelete={deleteNotification}
-                                        />
+                                    .filter((notification: Notification) => notification.type === "mention")
+                                    .map((notification: Notification) => (
+                                        <NotificationCard key={notification.id} notification={notification} />
                                     ))
                             ) : (
                                 <EmptyState message="No mentions to display" />

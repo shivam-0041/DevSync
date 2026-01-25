@@ -23,7 +23,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Badge } from "../components/ui/badge"
 import { fetchUserProfile } from '../routes/profile';
+import { fetchProjects } from '../routes/projects';
 import { useState, useEffect } from 'react';
+
+const getLanguageColor = (language: string) => {
+    const colors: { [key: string]: string } = {
+        JavaScript: "yellow-500",
+        TypeScript: "emerald-500",
+        Python: "blue-500",
+        Java: "red-500",
+        "C++": "pink-500",
+        "C#": "purple-500",
+        Go: "cyan-500",
+        Rust: "orange-500",
+        PHP: "indigo-500",
+        Ruby: "red-600",
+    };
+    return colors[language] || "gray-500";
+};
 
 export default function ProfilePage() {
 
@@ -33,11 +50,13 @@ export default function ProfilePage() {
     //const loggedInUser = JSON.parse(localStorage.getItem("username"));
 
     const [user, setUser] = useState({});
+    const [repositories, setRepositories] = useState([]);
     // Fetch user profile data from the backend
     useEffect(() => {
-        fetchUserProfile()
-            .then((data) => {
-              const avatar = data.avatar;
+        const fetchData = async () => {
+            try {
+                const profileData = await fetchUserProfile();
+                const avatar = profileData.avatar;
 
                 const isInvalidAvatar =
                     !avatar ||
@@ -51,29 +70,55 @@ export default function ProfilePage() {
 
                 // Map backend fields to frontend template
                 setUser({
-                    name: data.name,
-                    username: data.username,
-                    avatar: data.avatar,
-                    bio: data.bio || "",
-                    location: data.location || "",
-                    email: data.email,
-                    website: data.website || "",
-                    joinedDate: data.joinedDate,
-                    company: data.company || "",
-                    followers: data.followers || 0,
-                    following: data.following || 0,
-                    repositories: data.repositories || 0,
-                    contributions: data.contributions || 0,
-                    skills: data.skills.skill || "",
+                    name: profileData.name,
+                    username: profileData.username,
+                    avatar: profileData.avatar,
+                    bio: profileData.bio || "",
+                    location: profileData.location || "",
+                    email: profileData.email,
+                    website: profileData.website || "",
+                    joinedDate: profileData.joinedDate,
+                    company: profileData.company || "",
+                    followers: profileData.followers || 0,
+                    following: profileData.following || 0,
+                    repositories: 0, // Will be updated after fetching repos
+                    contributions: profileData.contributions || 0,
+                    skills: Array.isArray(profileData.skills) ? profileData.skills : (profileData.skills?.skill ? profileData.skills.skill : []),
                     socialLinks: {
-                        github: data.socialLinks?.github || "",
-                        linkedin: data.socialLinks?.linkedin || "",
-                        personal_website: data.socialLinks?.personal_website || "",
-                        twitter: data.socialLinks?.twitter || "",
+                        github: profileData.socialLinks?.github || "",
+                        linkedin: profileData.socialLinks?.linkedin || "",
+                        personal_website: profileData.socialLinks?.personal_website || "",
+                        twitter: profileData.socialLinks?.twitter || "",
                     },
                 });
-            })
-            .catch((err: any) => console.error(err));
+
+                // Fetch repositories
+                const projectsData = await fetchProjects();
+                const formattedRepos = projectsData.map(repo => ({
+                    name: repo.name,
+                    description: repo.description,
+                    language: repo.languages || "Unknown",
+                    languageColor: getLanguageColor(repo.languages),
+                    stars: repo.stars,
+                    forks: repo.forks,
+                    lastUpdated: new Date(repo.updated_at).toLocaleDateString(),
+                    isPrivate: repo.visibility === 'private',
+                    slug: repo.slug,
+                }));
+                setRepositories(formattedRepos);
+
+                // Update user repositories count
+                setUser(prevUser => ({
+                    ...prevUser,
+                    repositories: formattedRepos.length,
+                }));
+
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        fetchData();
     }, []);
 
 
@@ -101,48 +146,48 @@ export default function ProfilePage() {
   //}
 
   // Sample repositories data
-  const repositories = [
-    {
-      name: "E-commerce Platform",
-      description: "A modern e-commerce platform with React and Node.js",
-      language: "JavaScript",
-      languageColor: "yellow-500",
-      stars: 124,
-      forks: 32,
-      lastUpdated: "2 days ago",
-      isPrivate: false,
-    },
-    {
-      name: "AI Image Generator",
-      description: "Generate images using machine learning models",
-      language: "Python",
-      languageColor: "blue-500",
-      stars: 87,
-      forks: 15,
-      lastUpdated: "1 week ago",
-      isPrivate: true,
-    },
-    {
-      name: "React Component Library",
-      description: "A collection of reusable React components",
-      language: "TypeScript",
-      languageColor: "emerald-500",
-      stars: 215,
-      forks: 45,
-      lastUpdated: "3 days ago",
-      isPrivate: false,
-    },
-    {
-      name: "Personal Website",
-      description: "My personal portfolio website built with Next.js",
-      language: "TypeScript",
-      languageColor: "emerald-500",
-      stars: 12,
-      forks: 3,
-      lastUpdated: "1 month ago",
-      isPrivate: false,
-    },
-  ]
+  // const repositories = [
+  //   {
+  //     name: "E-commerce Platform",
+  //     description: "A modern e-commerce platform with React and Node.js",
+  //     language: "JavaScript",
+  //     languageColor: "yellow-500",
+  //     stars: 124,
+  //     forks: 32,
+  //     lastUpdated: "2 days ago",
+  //     isPrivate: false,
+  //   },
+  //   {
+  //     name: "AI Image Generator",
+  //     description: "Generate images using machine learning models",
+  //     language: "Python",
+  //     languageColor: "blue-500",
+  //     stars: 87,
+  //     forks: 15,
+  //     lastUpdated: "1 week ago",
+  //     isPrivate: true,
+  //   },
+  //   {
+  //     name: "React Component Library",
+  //     description: "A collection of reusable React components",
+  //     language: "TypeScript",
+  //     languageColor: "emerald-500",
+  //     stars: 215,
+  //     forks: 45,
+  //     lastUpdated: "3 days ago",
+  //     isPrivate: false,
+  //   },
+  //   {
+  //     name: "Personal Website",
+  //     description: "My personal portfolio website built with Next.js",
+  //     language: "TypeScript",
+  //     languageColor: "emerald-500",
+  //     stars: 12,
+  //     forks: 3,
+  //     lastUpdated: "1 month ago",
+  //     isPrivate: false,
+  //   },
+  // ]
 
   // Sample activity data
   const activities = [
@@ -415,7 +460,7 @@ function RepositoryItem({ repo }) {
         <div>
           <div className="flex items-center gap-2">
             <h3 className="font-medium text-emerald-500 hover:underline">
-              <a to={`/project/${repo.name}`}>{repo.name}</a>
+              <Link to={`/project/${repo.slug}`}>{repo.name}</Link>
             </h3>
             {repo.isPrivate && (
               <Badge variant="outline" className="text-xs">

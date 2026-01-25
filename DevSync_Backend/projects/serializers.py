@@ -220,3 +220,34 @@ class ProjectUpdateSerializer(serializers.ModelSerializer):
         model = Project
         fields = "__all__" 
         read_only_fields = ("project_id", "created_at", "updated_at", "slug")
+
+
+class MyAssignedTaskSerializer(serializers.ModelSerializer):
+    assignee = serializers.SerializerMethodField()
+    dueDate = serializers.DateField(source="deadline")
+    project_name = serializers.CharField(source="project.name")
+
+    class Meta:
+        model = ProjectTask
+        fields = [
+            "task_id",
+            "title",
+            "status",
+            "priority",
+            "assignee",
+            "dueDate",
+            "project_name",
+        ]
+
+    def get_assignee(self, obj):
+        if not obj.assign_to:
+            return None
+
+        user = obj.assign_to
+        name = user.name = user.full_name or user.username
+
+        return {
+            "name": name,
+            "avatar": None,  # plug later if you add avatars
+            "initials": "".join([part[0] for part in name.split()[:2]]).upper(),
+        }

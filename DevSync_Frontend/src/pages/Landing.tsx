@@ -13,10 +13,22 @@ import {
     Globe,
     Lock,
 } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
+import { useEffect } from "react"
+import { useAuth } from "../components/contexts/auth-context"
 
 export default function LandingPage() {
+    const { isAuthenticated, isLoading, user } = useAuth()
+    const navigate = useNavigate()
+
+    useEffect(() => {
+        if (!isLoading && isAuthenticated && user) {
+            // Redirect to dashboard if user is authenticated
+            navigate(`/dashboard/${user.username}`)
+        }
+    }, [isAuthenticated, isLoading, user, navigate])
+
     const fadeIn = {
         hidden: { opacity: 0, y: 20 },
         visible: {
@@ -705,7 +717,7 @@ export default function LandingPage() {
                             </div>
                             <p className="text-zinc-400 mb-6 max-w-md">
                                 DevSync is the modern platform for developers to collaborate seamlessly. Host code, track tasks,
-                                visualize ideas, and communicate—all in one unified workspace.
+                                visualize ideas, and communicateï¿½all in one unified workspace.
                             </p>
                             <div className="flex items-center gap-4">
                                 <Link to="#" className="text-zinc-500 hover:text-zinc-300 transition-colors">
@@ -794,7 +806,7 @@ export default function LandingPage() {
                         </div>
                     </div>
                     <div className="border-t border-zinc-800 pt-8 flex flex-col md:flex-row items-center justify-between">
-                        <p className="text-zinc-500 text-sm mb-4 md:mb-0">© 2025 DevSync, Inc. All rights reserved.</p>
+                        <p className="text-zinc-500 text-sm mb-4 md:mb-0">ï¿½ 2025 DevSync, Inc. All rights reserved.</p>
                         <div className="flex items-center gap-6">
                             <Link
                                 to="#"

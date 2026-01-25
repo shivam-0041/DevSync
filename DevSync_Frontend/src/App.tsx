@@ -55,9 +55,22 @@ function App() {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/user" element={<UserProfile />} />
-            <Route path="/:username" element={<PublicProfile />} />
+            <Route path="/p/:username" element={<PublicProfile />} />
             <Route path="/settings" element={<ProjectSettings />} />
             <Route path="/manage-collaborators" element={<ManageCollaborators />} />
+
+            {/* New routes - dashboard sub-pages */}
+            <Route path="/dashboard/explore" element={<ExplorePage />} />
+            <Route path="/dashboard/starred" element={<ExplorePage />} />
+            <Route path="/dashboard/teams" element={<ExplorePage />} />
+            <Route path="/dashboard/activity" element={<ExplorePage />} />
+
+            {/* New routes - auth aliases */}
+            <Route path="/signin" element={<LoginPage />} />
+            <Route path="/signup" element={<RegisterPage />} />
+
+            {/* New routes - additional pages */}
+            <Route path="/import-repository" element={<NewRepo />} />
 
             <Route element={<AuthGuard/>}>
                 <Route path="/dashboard/:username" element={ <Dashboard /> } />

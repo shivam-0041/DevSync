@@ -327,7 +327,7 @@
 
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback, memo } from "react"
 import { createPortal } from "react-dom"
 import { X, GripVertical, Code, Terminal, Database, GitBranch, Bug } from "lucide-react"
 import { Button } from "./ui/button"
@@ -339,58 +339,81 @@ import { Switch } from "./ui/switch"
 import { Label } from "./ui/label"
 import { Separator } from "./ui/separator"
 
-export function DevToolsSidebar() {
+export const DevToolsSidebar = memo(() => {
     const [isOpen, setIsOpen] = useState(false)
-    const [position, setPosition] = useState({ x: window.innerWidth - 60, y: 100 })
+    const positionRef = useRef({ x: window.innerWidth - 60, y: 100 })
     const [isDragging, setIsDragging] = useState(false)
-    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-    const buttonRef = useRef(null)
+    const dragOffsetRef = useRef({ x: 0, y: 0 })
+    const buttonRef = useRef<HTMLDivElement>(null)
+    const animationFrameRef = useRef<number>()
+    const [renderTrigger, setRenderTrigger] = useState(0) // Force re-render when needed
 
-    // Handle dragging
+    // Throttled position update using requestAnimationFrame
+    const updatePosition = useCallback((newX: number, newY: number) => {
+        positionRef.current = { x: newX, y: newY }
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current)
+        }
+        animationFrameRef.current = requestAnimationFrame(() => {
+            setRenderTrigger(prev => prev + 1) // Trigger re-render
+        })
+    }, [])
+
+    // Optimized mouse move handler
+    const handleMouseMove = useCallback((e: MouseEvent) => {
+        if (!isDragging || !buttonRef.current) return
+
+        const rect = buttonRef.current.getBoundingClientRect()
+        const newX = Math.max(0, Math.min(e.clientX - dragOffsetRef.current.x, window.innerWidth - rect.width))
+        const newY = Math.max(0, Math.min(e.clientY - dragOffsetRef.current.y, window.innerHeight - rect.height))
+
+        updatePosition(newX, newY)
+    }, [isDragging, updatePosition])
+
+    const handleMouseUp = useCallback(() => {
+        setIsDragging(false)
+    }, [])
+
+    // Set up event listeners only when dragging
     useEffect(() => {
-        const handleMouseMove = (e) => {
-            if (isDragging && buttonRef.current) {
-                const newX = Math.min(Math.max(0, e.clientX - dragOffset.x), window.innerWidth - buttonRef.current.offsetWidth)
-                const newY = Math.min(
-                    Math.max(0, e.clientY - dragOffset.y),
-                    window.innerHeight - buttonRef.current.offsetHeight,
-                )
-                setPosition({ x: newX, y: newY })
-            }
-        }
-
-        const handleMouseUp = () => {
-            setIsDragging(false)
-        }
-
         if (isDragging) {
-            document.addEventListener("mousemove", handleMouseMove)
-            document.addEventListener("mouseup", handleMouseUp)
+            document.addEventListener("mousemove", handleMouseMove, { passive: true })
+            document.addEventListener("mouseup", handleMouseUp, { passive: true })
         }
 
         return () => {
             document.removeEventListener("mousemove", handleMouseMove)
             document.removeEventListener("mouseup", handleMouseUp)
         }
-    }, [isDragging, dragOffset])
+    }, [isDragging, handleMouseMove, handleMouseUp])
 
-    const handleMouseDown = (e) => {
-        if (buttonRef.current) {
-            setIsDragging(true)
-            setDragOffset({
-                x: e.clientX - position.x,
-                y: e.clientY - position.y,
-            })
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        if (!buttonRef.current) return
+
+        setIsDragging(true)
+        const rect = buttonRef.current.getBoundingClientRect()
+        dragOffsetRef.current = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
         }
-    }
+        e.preventDefault()
+    }, [])
 
-    // Create portal for the sidebar
+    const handleOpen = useCallback(() => setIsOpen(true), [])
+    const handleClose = useCallback(() => setIsOpen(false), [])
+
+    // Memoized button component
     const DevToolsButton = (
         <div
             ref={buttonRef}
-            className={`fixed z-50 flex items-center justify-center transition-all duration-300 ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
-                }`}
-            style={{ left: `${position.x}px`, top: `${position.y}px` }}
+            className={`fixed z-50 flex items-center justify-center transition-all duration-300 ${
+                isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+            }`}
+            style={{
+                left: `${positionRef.current.x}px`,
+                top: `${positionRef.current.y}px`,
+                willChange: isDragging ? 'transform' : 'auto'
+            }}
         >
             <div
                 className="absolute inset-0 bg-emerald-500 rounded-full opacity-20 animate-ping"
@@ -399,7 +422,7 @@ export function DevToolsSidebar() {
             <Button
                 size="icon"
                 className="h-12 w-12 rounded-full bg-zinc-900 border-2 border-emerald-500 text-emerald-400 hover:bg-zinc-800 shadow-lg relative z-10"
-                onClick={() => setIsOpen(true)}
+                onClick={handleOpen}
             >
                 <Code className="h-5 w-5" />
             </Button>
@@ -409,138 +432,111 @@ export function DevToolsSidebar() {
         </div>
     )
 
-    const DevToolsPanel = isOpen
-        ? createPortal(
-            <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/50">
-                <div className="h-full w-full max-w-md bg-zinc-900 border-l border-zinc-800 shadow-xl overflow-hidden flex flex-col">
-                    <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                            <Code className="h-5 w-5 text-emerald-400" /> Developer Tools
-                        </h2>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800"
-                            onClick={() => setIsOpen(false)}
-                        >
-                            <X className="h-5 w-5" />
-                        </Button>
-                    </div>
+    // Memoized panel component with proper scrolling
+    const DevToolsPanel = isOpen ? createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/50 backdrop-blur-sm">
+            <div className="h-full w-full max-w-md bg-zinc-900 border-l border-zinc-800 shadow-2xl overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <Code className="h-5 w-5 text-emerald-400" /> Developer Tools
+                    </h2>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800"
+                        onClick={handleClose}
+                    >
+                        <X className="h-5 w-5" />
+                    </Button>
+                </div>
 
-                    <Tabs defaultValue="console" className="flex-1 overflow-hidden flex flex-col">
-                        <TabsList className="bg-zinc-800 px-4 py-2 justify-start">
-                            <TabsTrigger value="console" className="data-[state=active]:bg-zinc-700">
-                                Console
-                            </TabsTrigger>
-                            <TabsTrigger value="network" className="data-[state=active]:bg-zinc-700">
-                                Network
-                            </TabsTrigger>
-                            <TabsTrigger value="settings" className="data-[state=active]:bg-zinc-700">
-                                Settings
-                            </TabsTrigger>
-                        </TabsList>
+                <Tabs defaultValue="console" className="flex-1 overflow-hidden flex flex-col">
+                    <TabsList className="bg-zinc-800 px-4 py-2 justify-start border-b border-zinc-700">
+                        <TabsTrigger value="console" className="data-[state=active]:bg-zinc-700">
+                            Console
+                        </TabsTrigger>
+                        <TabsTrigger value="network" className="data-[state=active]:bg-zinc-700">
+                            Network
+                        </TabsTrigger>
+                        <TabsTrigger value="settings" className="data-[state=active]:bg-zinc-700">
+                            Settings
+                        </TabsTrigger>
+                    </TabsList>
 
-                        <TabsContent value="console" className="flex-1 overflow-hidden flex flex-col p-0 data-[state=active]:flex">
-                            <div className="flex-1 overflow-auto p-4 bg-zinc-950 font-mono text-sm text-zinc-300">
-                                <div className="space-y-2">
-                                    <div className="text-emerald-400">&gt; Welcome to CodeCollab Developer Console</div>
-                                    <div className="text-zinc-500">// You can test JavaScript code here</div>
-                                    <div className="text-zinc-300">&gt; const greeting = "Hello, Developer!";</div>
-                                    <div className="text-zinc-300">&gt; console.log(greeting);</div>
-                                    <div className="text-emerald-400">"Hello, Developer!"</div>
-                                    <div className="text-zinc-300">&gt; const sum = (a, b) =&gt; a + b;</div>
-                                    <div className="text-zinc-300">&gt; sum(5, 10);</div>
-                                    <div className="text-emerald-400">15</div>
-                                    <div className="text-red-400">
-                                        Uncaught TypeError: Cannot read properties of undefined (reading 'map')
-                                    </div>
-                                    <div className="text-zinc-500">// at ProjectList.jsx:24:32</div>
+                    <TabsContent value="console" className="flex-1 overflow-hidden flex flex-col p-0 data-[state=active]:flex m-0">
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-zinc-950 font-mono text-sm text-zinc-300 scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-zinc-800">
+                            <div className="space-y-2 min-h-full">
+                                <div className="text-emerald-400">&gt; Welcome to CodeCollab Developer Console</div>
+                                <div className="text-zinc-500">// You can test JavaScript code here</div>
+                                <div className="text-zinc-300">&gt; const greeting = "Hello, Developer!";</div>
+                                <div className="text-zinc-300">&gt; console.log(greeting);</div>
+                                <div className="text-emerald-400">"Hello, Developer!"</div>
+                                <div className="text-zinc-300">&gt; const sum = (a, b) =&gt; a + b;</div>
+                                <div className="text-zinc-300">&gt; sum(5, 10);</div>
+                                <div className="text-emerald-400">15</div>
+                                <div className="text-red-400">
+                                    Uncaught TypeError: Cannot read properties of undefined (reading 'map')
                                 </div>
+                                <div className="text-zinc-500">// at ProjectList.jsx:24:32</div>
                             </div>
-                            <div className="p-2 border-t border-zinc-800 bg-zinc-900">
-                                <div className="flex items-center gap-2">
-                                    <Textarea
-                                        placeholder="Enter JavaScript code..."
-                                        className="min-h-[60px] bg-zinc-800 border-zinc-700 text-white"
-                                    />
-                                    <Button className="h-full bg-emerald-500 hover:bg-emerald-600">Run</Button>
-                                </div>
+                        </div>
+                        <div className="p-2 border-t border-zinc-800 bg-zinc-900 flex-shrink-0">
+                            <div className="flex items-center gap-2">
+                                <Textarea
+                                    placeholder="Enter JavaScript code..."
+                                    className="min-h-[60px] bg-zinc-800 border-zinc-700 text-white resize-none"
+                                />
+                                <Button className="h-full bg-emerald-500 hover:bg-emerald-600 flex-shrink-0">Run</Button>
                             </div>
-                        </TabsContent>
+                        </div>
+                    </TabsContent>
 
-                        <TabsContent
-                            value="network"
-                            className="flex-1 overflow-hidden flex flex-col p-0 data-[state=active]:flex"
-                        >
-                            <div className="flex-1 overflow-auto">
-                                <div className="p-4 space-y-4">
-                                    <Card className="bg-zinc-800 border-zinc-700">
-                                        <CardHeader className="pb-2">
-                                            <div className="flex justify-between items-center">
-                                                <CardTitle className="text-white text-sm">GET /api/projects</CardTitle>
-                                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">200 OK</Badge>
-                                            </div>
-                                            <CardDescription>https://api.codecollab.io/projects</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="text-xs">
-                                            <div className="flex justify-between text-zinc-400 mb-1">
-                                                <span>Time: 235ms</span>
-                                                <span>Size: 12.4KB</span>
-                                            </div>
-                                            <div className="bg-zinc-900 p-2 rounded-md font-mono text-zinc-300 max-h-32 overflow-auto">
-                                                {`{ "data": [...], "pagination": { "total": 42, "page": 1, "limit": 10 } }`}
-                                            </div>
-
-                                        </CardContent>
-                                    </Card>
-
-                                    <Card className="bg-zinc-800 border-zinc-700">
-                                        <CardHeader className="pb-2">
-                                            <div className="flex justify-between items-center">
-                                                <CardTitle className="text-white text-sm">POST /api/auth/login</CardTitle>
-                                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">200 OK</Badge>
-                                            </div>
-                                            <CardDescription>https://api.codecollab.io/auth/login</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="text-xs">
-                                            <div className="flex justify-between text-zinc-400 mb-1">
-                                                <span>Time: 189ms</span>
-                                                <span>Size: 1.2KB</span>
-                                            </div>
-                                            <div className="bg-zinc-900 p-2 rounded-md font-mono text-zinc-300 max-h-32 overflow-auto">
-                                                {`{ "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", "user": { "id": 123, "username": "johndoe" } }`}
-                                            </div>
-
-                                        </CardContent>
-                                    </Card>
-
-                                    <Card className="bg-zinc-800 border-zinc-700">
-                                        <CardHeader className="pb-2">
-                                            <div className="flex justify-between items-center">
-                                                <CardTitle className="text-white text-sm">GET /api/users/profile</CardTitle>
-                                                <Badge className="bg-red-500/20 text-red-400 border-red-500/30">401 Unauthorized</Badge>
-                                            </div>
-                                            <CardDescription>https://api.codecollab.io/users/profile</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="text-xs">
-                                            <div className="flex justify-between text-zinc-400 mb-1">
-                                                <span>Time: 87ms</span>
-                                                <span>Size: 0.3KB</span>
-                                            </div>
-                                            <div className="bg-zinc-900 p-2 rounded-md font-mono text-zinc-300 max-h-32 overflow-auto">
-                                                {"{"} "error": "Unauthorized", "message": "Invalid or expired token" {"}"}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
+                    <TabsContent
+                        value="network"
+                        className="flex-1 overflow-hidden flex flex-col p-0 data-[state=active]:flex m-0"
+                    >
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-zinc-800">
+                            <div className="p-4 space-y-4">
+                                <NetworkCard
+                                    method="GET"
+                                    endpoint="/api/projects"
+                                    status="200 OK"
+                                    statusColor="bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                    url="https://api.codecollab.io/projects"
+                                    time="235ms"
+                                    size="12.4KB"
+                                    response='{ "data": [...], "pagination": { "total": 42, "page": 1, "limit": 10 } }'
+                                />
+                                <NetworkCard
+                                    method="POST"
+                                    endpoint="/api/auth/login"
+                                    status="200 OK"
+                                    statusColor="bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                    url="https://api.codecollab.io/auth/login"
+                                    time="189ms"
+                                    size="1.2KB"
+                                    response='{ "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", "user": { "id": 123, "username": "johndoe" } }'
+                                />
+                                <NetworkCard
+                                    method="GET"
+                                    endpoint="/api/users/profile"
+                                    status="401 Unauthorized"
+                                    statusColor="bg-red-500/20 text-red-400 border-red-500/30"
+                                    url="https://api.codecollab.io/users/profile"
+                                    time="87ms"
+                                    size="0.3KB"
+                                    response='{ "error": "Unauthorized", "message": "Invalid or expired token" }'
+                                />
                             </div>
-                        </TabsContent>
+                        </div>
+                    </TabsContent>
 
-                        <TabsContent
-                            value="settings"
-                            className="flex-1 overflow-hidden flex flex-col p-4 data-[state=active]:flex"
-                        >
-                            <div className="space-y-6">
+                    <TabsContent
+                        value="settings"
+                        className="flex-1 overflow-hidden flex flex-col p-0 data-[state=active]:flex m-0"
+                    >
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-zinc-800">
+                            <div className="p-4 space-y-6">
                                 <div>
                                     <h3 className="text-lg font-medium text-white mb-4">Developer Settings</h3>
                                     <Card className="bg-zinc-800 border-zinc-700">
@@ -636,13 +632,22 @@ export function DevToolsSidebar() {
                                     </div>
                                 </div>
                             </div>
-                        </TabsContent>
-                    </Tabs>
-                </div>
-            </div>,
-            document.body
-        )
-        : null
+                        </div>
+                    </TabsContent>
+                </Tabs>
+            </div>
+        </div>,
+        document.body
+    ) : null
+
+    // Cleanup animation frame on unmount
+    useEffect(() => {
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current)
+            }
+        }
+    }, [])
 
     return (
         <>
@@ -650,7 +655,47 @@ export function DevToolsSidebar() {
             {DevToolsPanel}
         </>
     )
-}
+})
+
+// Memoized network card component
+const NetworkCard = memo(({
+    method,
+    endpoint,
+    status,
+    statusColor,
+    url,
+    time,
+    size,
+    response
+}: {
+    method: string
+    endpoint: string
+    status: string
+    statusColor: string
+    url: string
+    time: string
+    size: string
+    response: string
+}) => (
+    <Card className="bg-zinc-800 border-zinc-700">
+        <CardHeader className="pb-2">
+            <div className="flex justify-between items-center">
+                <CardTitle className="text-white text-sm">{method} {endpoint}</CardTitle>
+                <Badge className={statusColor}>{status}</Badge>
+            </div>
+            <CardDescription>{url}</CardDescription>
+        </CardHeader>
+        <CardContent className="text-xs">
+            <div className="flex justify-between text-zinc-400 mb-1">
+                <span>Time: {time}</span>
+                <span>Size: {size}</span>
+            </div>
+            <div className="bg-zinc-900 p-2 rounded-md font-mono text-zinc-300 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-zinc-800">
+                {response}
+            </div>
+        </CardContent>
+    </Card>
+))
 
 // Helper components
 function Badge({ children, className, variant = "default", ...props }) {

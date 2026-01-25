@@ -27,7 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu"
-import { TaskAllocation } from "../components/task-allocation"
+import { TaskAllocation, type DashboardTask } from "../components/task-allocation"
 import { ProjectCard } from "../components/project-card"
 import { AIAssistant } from "../components/ai-assistant"
 import { QuickActions, QuickActionsHeader } from "../components/quick-actions"
@@ -37,25 +37,29 @@ import { DevToolsSidebar } from "../components/dev-tools-sidebar"
 import { useEffect, useState } from "react";
 import { useAuth } from "../components/contexts/auth-context";
 import { fetchUserProfile } from '../routes/profile';
-import { fetchProjects } from "../routes/projects"
+import { fetchProjects, fetchMyTasks } from "../routes/projects"
+import { useNotifications } from "../components/contexts/notifications-context"
 
+interface UserState {
+    name?: string;
+    username?: string;
+    avatar?: string;
+}
 
 const Dashboard = () => {
     const { user, isAuthenticated, isLoading } = useAuth();
     const navigate = useNavigate();
     const { username } = useParams();
-    const loggedInUser = JSON.parse(localStorage.getItem("user"))
-    const [usser, setUser] = useState({});
-    const [profileImage, setProfileImage] = useState<string>("/def-avatar.svg")
+    const loggedInUser = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user") || "{}") : {};
+    const [usser, setUser] = useState<UserState>({});
     const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (!isAuthenticated || !user) {
             navigate("/login");
         }
 
-        if (username && user?.username !== username) {
+        if (username && user && user?.username !== username) {
             navigate(`/dashboard/${user.username}`);
         }
       
@@ -74,10 +78,8 @@ const Dashboard = () => {
                 const isInvalidAvatar =
                     !avatar ||
                     avatar === "null" ||
-                    avatar === "undefined";
-                     (typeof avatar === "string" && avatar.includes("placeholder.svg"));
-
-                setProfileImage(isInvalidAvatar ? "/def-avatar.svg" : avatar);
+                    avatar === "undefined" ||
+                    (typeof avatar === "string" && avatar.includes("placeholder.svg"));
 
                 // Map backend fields to frontend template
                 setUser({
@@ -94,65 +96,85 @@ const Dashboard = () => {
       fetchProjects()
         .then((data) => {
           setProjects(data);
-          setLoading(false);
         })
         .catch((err) => {
           console.error("Error fetching projects:", err);
-          setLoading(false);
         });
     }, []);
 
 
+  const [tasks, setTasks] = useState<DashboardTask[]>([])
+  const { unreadCount, markAllAsRead } = useNotifications()
+
+  useEffect(() => {
+    if (user?.username) {
+      fetchMyTasks(user.username)
+        .then(setTasks)
+        .catch((err) => {
+          console.error("Error fetching tasks:", err);
+          setTasks([]);
+        });
+    }
+  }, [user?.username])
+
   // Sample tasks data
-  const tasks = [
-    {
-      id: "1",
-      title: "Implement dropdown component",
-      status: "In Progress",
-      assignee: {
-        name: "John Doe",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "JD",
-      },
-      dueDate: "Tomorrow",
-    },
-    {
-      id: "2",
-      title: "Fix responsive layout issues",
-      status: "To Do",
-      assignee: {
-        name: "Sarah Liu",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "SL",
-      },
-      dueDate: "3 days",
-    },
-    {
-      id: "3",
-      title: "Update documentation",
-      status: "Review",
-      assignee: {
-        name: "Mike Kim",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "MK",
-      },
-      dueDate: "2 days",
-    },
-    {
-      id: "4",
-      title: "Add unit tests for API",
-      status: "Done",
-      assignee: {
-        name: "Alex Kim",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "AK",
-      },
-      dueDate: "Yesterday",
-    },
-  ]
+  // const tasks = [
+  //   {
+  //     id: "1",
+  //     title: "Implement dropdown component",
+  //     status: "In Progress",
+  //     assignee: {
+  //       name: "John Doe",
+  //       avatar: "/placeholder.svg?height=40&width=40",
+  //       initials: "JD",
+  //     },
+  //     dueDate: "Tomorrow",
+  //   },
+  //   {
+  //     id: "2",
+  //     title: "Fix responsive layout issues",
+  //     status: "To Do",
+  //     assignee: {
+  //       name: "Sarah Liu",
+  //       avatar: "/placeholder.svg?height=40&width=40",
+  //       initials: "SL",
+  //     },
+  //     dueDate: "3 days",
+  //   },
+  //   {
+  //     id: "3",
+  //     title: "Update documentation",
+  //     status: "Review",
+  //     assignee: {
+  //       name: "Mike Kim",
+  //       avatar: "/placeholder.svg?height=40&width=40",
+  //       initials: "MK",
+  //     },
+  //     dueDate: "2 days",
+  //   },
+  //   {
+  //     id: "4",
+  //     title: "Add unit tests for API",
+  //     status: "Done",
+  //     assignee: {
+  //       name: "Alex Kim",
+  //       avatar: "/placeholder.svg?height=40&width=40",
+  //       initials: "AK",
+  //     },
+  //     dueDate: "Yesterday",
+  //   },
+  // ]
 
   // Sample team members data
-  const teamMembers = [
+  const teamMembers: Array<{
+    id: string
+    name: string
+    role: string
+    avatar: string
+    initials: string
+    status: "online" | "away" | "offline" | "dnd"
+    lastActive?: string
+  }> = [
     {
       id: "1",
       name: "John Doe",
@@ -217,13 +239,15 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <DropdownMenu>
+              <DropdownMenu onOpenChange={(open) => open && markAllAsRead()}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative text-zinc-400 hover:text-zinc-300">
                     <Bell className="h-5 w-5" />
-                    <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center">
-                      3
-                    </span>
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center">
+                        {unreadCount}
+                      </span>
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80 bg-zinc-900 border-zinc-800">
@@ -479,7 +503,7 @@ const Dashboard = () => {
   )
 }
 
-function ActivityItem({ activity }) {
+function ActivityItem({ activity }: { activity: any }) {
   return (
     <div className="flex gap-4">
       <Avatar className="h-8 w-8">
@@ -496,7 +520,7 @@ function ActivityItem({ activity }) {
   )
 }
 
-function NotificationItem({ title, description, time, read }) {
+function NotificationItem({ title, description, time, read }: { title: string; description: string; time: string; read: boolean }) {
   return (
     <div className={`px-4 py-3 hover:bg-zinc-800 ${!read ? "bg-zinc-800/50" : ""}`}>
       <div className="flex items-start gap-2">
@@ -511,7 +535,7 @@ function NotificationItem({ title, description, time, read }) {
   )
 }
 
-function RecommendedItem({ title, description, icon, stats }) {
+function RecommendedItem({ title, description, icon, stats }: { title: string; description: string; icon: any; stats: string }) {
   return (
     <div className="flex items-start gap-3 p-2 hover:bg-zinc-800 rounded-md">
       <div className="mt-0.5 text-zinc-400">{icon}</div>
@@ -525,99 +549,6 @@ function RecommendedItem({ title, description, icon, stats }) {
 }
 
 // Sample data
-const projects = [
-  {
-    id: "1",
-    name: "Project Alpha",
-    description: "Modern web application framework",
-    visibility: "public",
-    language: "TypeScript",
-    languageColor: "emerald-500",
-    branches: 8,
-    stars: 24,
-    progress: 75,
-    dueDate: "5 days",
-    contributors: ["JD", "AK", "TM"],
-    lastUpdated: "2 days ago",
-    comments: 12,
-  },
-  {
-    id: "2",
-    name: "AI Image Generator",
-    description: "Generate images using machine learning models",
-    visibility: "private",
-    language: "Python",
-    languageColor: "blue-500",
-    branches: 2,
-    stars: 5,
-    progress: 45,
-    dueDate: "2 weeks",
-    contributors: ["JD", "LM"],
-    lastUpdated: "5 days ago",
-    comments: 3,
-  },
-  {
-    id: "3",
-    name: "Mobile App",
-    description: "Cross-platform mobile application using React Native",
-    visibility: "public",
-    language: "TypeScript",
-    languageColor: "emerald-500",
-    branches: 3,
-    stars: 8,
-    progress: 30,
-    dueDate: "1 month",
-    contributors: ["JD", "AK", "RJ", "MT"],
-    lastUpdated: "1 week ago",
-    comments: 7,
-  },
-  {
-    id: "4",
-    name: "Design System",
-    description: "Component library for consistent UI design",
-    visibility: "public",
-    language: "TypeScript",
-    languageColor: "emerald-500",
-    branches: 2,
-    stars: 15,
-    progress: 90,
-    dueDate: "3 days",
-    contributors: ["JD", "LM", "AK"],
-    lastUpdated: "2 weeks ago",
-    comments: 5,
-  },
-  {
-    id: "5",
-    name: "API Gateway",
-    description: "Microservices API gateway with authentication",
-    visibility: "private",
-    language: "Go",
-    languageColor: "cyan-500",
-    branches: 1,
-    stars: 3,
-    progress: 60,
-    dueDate: "10 days",
-    contributors: ["JD", "MT"],
-    lastUpdated: "3 weeks ago",
-    comments: 2,
-  },
-  {
-    id: "6",
-    name: "Data Visualization",
-    description: "Interactive data visualization dashboard",
-    visibility: "public",
-    language: "JavaScript",
-    languageColor: "yellow-500",
-    branches: 2,
-    stars: 7,
-    progress: 20,
-    dueDate: "3 weeks",
-    contributors: ["JD", "AK", "RJ"],
-    lastUpdated: "1 month ago",
-    comments: 4,
-  },
-]
-
 const activities = [
   {
     user: { name: "Alex Kim", initials: "AK" },

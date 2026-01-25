@@ -50,7 +50,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         return f"{obj.user.first_name} {obj.user.last_name}".strip()
 
     def get_joinedDate(self, obj):
-        return obj.user.created_at.strftime("%B %Y")
+        return obj.user.created_at.strftime("%Y-%m-%d")
 
     def get_avatar(self, obj):
         if obj.avatar:

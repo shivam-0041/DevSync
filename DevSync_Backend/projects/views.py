@@ -14,6 +14,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from .models import Project, Whiteboard, Issue, ProjectTask
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 class CreateProjectView(generics.CreateAPIView):
     queryset = Project.objects.all()
     serializer_class = ProjectCreateSerializer
@@ -29,6 +32,20 @@ class ProjectListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return Project.objects.filter(created_by=user) | Project.objects.filter(members=user)
+
+class PublicProjectListView(generics.ListAPIView):
+    serializer_class = ProjectListSerializer
+    permission_classes = []  # No authentication required for public projects
+
+    def get_queryset(self):
+        username = self.kwargs.get('username')
+        if username:
+            try:
+                user = User.objects.get(username=username)
+                return Project.objects.filter(created_by=user, visibility='public')
+            except User.DoesNotExist:
+                return Project.objects.none()
+        return Project.objects.none()
 
 class ProjectDetailView(generics.RetrieveAPIView):
     serializer_class = ProjectDetailSerializer
@@ -95,3 +112,21 @@ class TasksCreateView(generics.CreateAPIView):
             serializer.save(project=project)  # attach project here
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
+    
+
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import IsAuthenticated
+from .serializers import MyAssignedTaskSerializer
+
+class MyAssignedTasksView(ListAPIView):
+    serializer_class = MyAssignedTaskSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            ProjectTask.objects
+            .filter(assign_to=self.request.user)
+            .exclude(status="done")          # optional: hide completed
+            .select_related("assign_to", "project")
+            .order_by("deadline")
+        )

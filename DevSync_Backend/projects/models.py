@@ -218,6 +218,7 @@ class ProjectActivity(models.Model):
 def validate_deadline(value):
     if value < now().date():
         raise ValidationError("Deadline cannot be in the past.")
+    
 class ProjectTask(models.Model):
 
     PRIORITY_CHOICES = [

@@ -30,6 +30,22 @@ class UserProfileDetailView(APIView):
         return Response(serializer.data)
 
 
+class PublicProfileView(APIView):
+    permission_classes = []  # No authentication required for public profiles
+
+    def get(self, request, username):
+        try:
+            user = User.objects.get(username=username)
+            profile = Profile.objects.get(user=user)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=404)
+        except Profile.DoesNotExist:
+            return Response({"error": "Profile not found."}, status=404)
+
+        serializer = ProfileSerializer(profile, context={"request": request})
+        return Response(serializer.data)
+
+
 
 #FOR LATER USE
 # Decoding the Token (Backend):
