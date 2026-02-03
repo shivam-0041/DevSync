@@ -388,6 +388,9 @@ dist-ssr
 *.sln
 *.sw?
 
-#Extra folder
-./myenv
+# Python virtual environments & Other
+venv/
+myenv/
+.venv/
+.env
 media/avatars/*

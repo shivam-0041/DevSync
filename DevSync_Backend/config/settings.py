@@ -18,14 +18,30 @@ from datetime import datetime, timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+# Load environment variables from .env for local development (if present)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(Path(__file__).resolve().parent.parent, '.env'))
+except Exception:
+    pass
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-tdvug)n#4d@l@e+xnnd0j%#8g@sz)wxb5_fg*3!9vvwisujv%w'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
+
+# Provide an insecure fallback for development only. In production (DEBUG=False)
+# the DJANGO_SECRET_KEY environment variable must be set.
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'insecure-local-development-key'
+    else:
+        raise RuntimeError('DJANGO_SECRET_KEY environment variable is required in production')
 
 ALLOWED_HOSTS = []
 
@@ -167,7 +183,7 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'infinite.02304@gmail.com'
-EMAIL_HOST_PASSWORD = 'xbri fydk swuu jiqe'
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 
 
 MEDIA_URL = '/media/'
@@ -186,8 +202,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 SOCIALACCOUNT_PROVIDERS = {
     'github': {
         'APP': {
-            'client_id': 'Ov23liwlTKHODlBf7Ljt',
-            'secret': '8cb1c3c5296bde5b81f15570ef8dd96bf40460b7',
+            'client_id': os.environ.get('SOCIAL_GITHUB_CLIENT_ID'),
+            'secret': os.environ.get('SOCIAL_GITHUB_SECRET'),
             'key': ''
         }
     }
