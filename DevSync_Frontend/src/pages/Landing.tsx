@@ -22,12 +22,12 @@ export default function LandingPage() {
     const { isAuthenticated, isLoading, user } = useAuth()
     const navigate = useNavigate()
 
-    useEffect(() => {
-        if (!isLoading && isAuthenticated && user) {
-            // Redirect to dashboard if user is authenticated
-            navigate(`/dashboard/${user.username}`)
-        }
-    }, [isAuthenticated, isLoading, user, navigate])
+    // useEffect(() => {
+    //     if (!isLoading && isAuthenticated && user) {
+    //         // Redirect to dashboard if user is authenticated
+    //         navigate(`/dashboard/${user.username}`)
+    //     }
+    // }, [isAuthenticated, isLoading, user, navigate])
 
     const fadeIn = {
         hidden: { opacity: 0, y: 20 },

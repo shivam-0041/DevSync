@@ -245,6 +245,31 @@ export async function fetchMyTasks(_username: string): Promise<DashboardTask[]> 
 }
 
 
+export async function ProjectInvite(slug,formData){
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false };
+        }
+
+        const response = await axios.post(`${BASE_URL}${slug}/invite/`,formData, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        return { success: true, data: response.data };
+
+    } catch (error) {
+        console.error("Failed to invite user:", error);
+        throw error;
+    }
+}
+
+
+
+
 // export async function fetchWhiteboard(slug, whiteboard_id) {
 
 //     try {

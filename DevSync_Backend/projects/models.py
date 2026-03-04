@@ -1,4 +1,6 @@
 import uuid
+import secrets
+from datetime import timedelta
 from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth import get_user_model
@@ -18,6 +20,10 @@ def generate_project_id():
 
 def generate_task_id():
     return f"Task-{uuid.uuid4().hex[:6].upper()}"
+
+def generate_invite_token():
+    """Generate a secure random token for project invites"""
+    return secrets.token_urlsafe(32)
 
 # ============================
 # Project Model
@@ -39,7 +45,11 @@ class Project(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_projects')
-    members = models.ManyToManyField(User, related_name='projects')
+    members = models.ManyToManyField(
+        User,
+        through='UserProjectRole',
+        related_name='projects'
+    )
     slug = models.SlugField(unique=True, blank=True)
     logo = models.ImageField(upload_to='project_logos/', blank=True, null=True)
     languages = models.CharField(max_length=200, blank=True, editable=False)
@@ -67,7 +77,6 @@ class Project(models.Model):
     issues_enabled = models.BooleanField(default=True)
     wiki_enabled = models.BooleanField(default=False)
     boards_enabled = models.BooleanField(default=False)
-    discussions_enabled = models.BooleanField(default=False)
     auto_init = models.BooleanField(default=False)
 
     @property
@@ -258,6 +267,26 @@ class ProjectTask(models.Model):
         return f"{self.title}({self.project.name})"
 
 
+# ============================
+# UserProjectRole Model
+# ============================
+
+class UserProjectRole(models.Model):
+    ROLE_CHOICES = [
+        ("admin", "Admin"),
+        ("maintainer", "Maintainer"),
+        ("developer", "Developer"),
+        ("guest", "Guest"),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    role = models.CharField(max_length=15, choices=ROLE_CHOICES)
+    branch_name = models.CharField(max_length=255, blank=True, null=True)  # For collaborators only
+
+    class Meta:
+        unique_together = ("user", "project")
+    def __str__(self):
+        return f"{self.user} - {self.project} ({self.role})"
 
 
 # ============================
@@ -266,11 +295,32 @@ class ProjectTask(models.Model):
 class ProjectInvite(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='invites')
     email = models.EmailField()
+    role_to_assign = models.CharField(max_length=15, choices=UserProjectRole.ROLE_CHOICES, default="developer")
     invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    status = models.CharField(max_length=10, choices=[('pending', 'Pending'), ('accepted', 'Accepted'), ('declined', 'Declined')], default='pending')
+    status = models.CharField(max_length=10, choices=[('pending', 'Pending'), ('accepted', 'Accepted'), ('declined', 'Declined'), ('expired', 'Expired')], default='pending')
+    
+    # Security fields
+    token = models.CharField(max_length=255, unique=True, editable=False, default=generate_invite_token)
+    expires_at = models.DateTimeField(editable=False)
+    
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            # Set expiry to 72 hours from now
+            self.expires_at = now() + timedelta(hours=72)
+        super().save(*args, **kwargs)
+    
+    def is_expired(self):
+        """Check if the invite token has expired"""
+        return now() > self.expires_at
+    
+    def is_valid(self):
+        """Check if invite is valid (not expired and status is pending)"""
+        return self.status == 'pending' and not self.is_expired()
+    
     def __str__(self):
-        return f"{self.user} - {self.project} ({self.role})"
+        return f"{self.email} - {self.project.name} ({self.status})"
     
 
 # ============================
@@ -284,10 +334,10 @@ class Issue(models.Model):
     ]
 
     ISSUE_TYPES= [
-        ("Bug Report", "bug report"),
-        ("Feature Request","feature request"),
-        ("Improvement","improvement"),
-        ("Question", "question"),
+        ("bug_report", "Bug Report"),
+        ("feature_request", "Feature Request"),
+        ("improvement", "Improvement"),
+        ("question", "Question"),
     ]
 
     PRIORITY_CHOICES = [
@@ -325,7 +375,7 @@ class ProjectTag(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tag_links')
     tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
     def __str__(self):
-        return f"{self.user} - {self.project} ({self.role})"
+        return f"{self.tag.name} - {self.project.name}"
 
 
 # ============================
@@ -339,21 +389,6 @@ class Notification(models.Model):
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-class UserProjectRole(models.Model):
-    ROLE_CHOICES = [
-        ("owner", "Owner"),
-        ("collaborator", "Collaborator"),
-        ("contributor", "Contributor")
-    ]
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    role = models.CharField(max_length=15, choices=ROLE_CHOICES)
-    branch_name = models.CharField(max_length=255, blank=True, null=True)  # For collaborators only
-
-    class Meta:
-        unique_together = ("user", "project")
-    def __str__(self):
-        return f"{self.user} - {self.project} ({self.role})"
 
 
 class LanguageUsage(models.Model):
@@ -361,7 +396,7 @@ class LanguageUsage(models.Model):
     language = models.CharField(max_length=50)
     percentage = models.FloatField()
     def __str__(self):
-        return f"{self.user} - {self.project} ({self.role})"
+        return f"{self.language} ({self.percentage}%) - {self.project.name}"
 
 # ---- Chat/Whiteboard models for repositories ----
 class Chat(models.Model):

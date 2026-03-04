@@ -185,7 +185,12 @@ export default function ProjectPage() {
         if (project.slug) fetchIssues()
     }, [project.slug])
 
-    if (loading) return <p>Loading project...</p>;
+    if (loading) return (
+        <div className="loader-container">
+            <div className="loader"></div>
+        </div>
+    );
+
     if (!project) return <p>Project not found</p>;
 
     
@@ -591,9 +596,11 @@ export default function ProjectPage() {
                                         </Link>
                                     </div>
                                     <div className="flex items-center justify-between ">
-                                        <Button variant="ghost" className="text-zinc-400">
-                                            <Users className="w-4 h-4" /><Plus className="-ml-3 w-2 h-2"/>
-                                        </Button>
+                                        <Link to={`/${loggedInUser.username}/project/${project.slug}/manage-collaborators`}>
+                                            <Button variant="ghost" className="text-zinc-400">
+                                                <Users className="w-4 h-4" /><Plus className="-ml-3 w-2 h-2"/>
+                                            </Button>
+                                        </Link>
                                     </div>
                                 </div>
                                 
@@ -856,14 +863,32 @@ export default function ProjectPage() {
                                 </div>
 
                                 <div>
-                                    <h4 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Contributors</h4>
+                                    <h4 className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">Team Members</h4>
                                     <div className="flex flex-wrap gap-2">
-                                        {project.contributors.map((contributor, index) => (
-                                            <Avatar key={index} className="h-8 w-8">
-                                                <AvatarImage src={contributor.avatar || "/placeholder.svg"} alt={contributor.initials} />
-                                                <AvatarFallback>{contributor.initials}</AvatarFallback>
-                                            </Avatar>
-                                        ))}
+                                        {Array.isArray(project.members) && project.members.length > 0 ? (
+                                            project.members.map((member: any) => {
+                                                const name = member.username || member.email || "?";
+                                                const initials = name
+                                                    .split(/[^A-Za-z0-9]+/)
+                                                    .filter(Boolean)
+                                                    .map((s) => s[0].toUpperCase())
+                                                    .slice(0, 2)
+                                                    .join("");
+                                                return (
+                                                    <div key={member.id} className="flex items-center gap-2">
+                                                        <Avatar className="h-8 w-8">
+                                                            <AvatarFallback className="text-sm">{initials}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="text-sm">
+                                                            <div className="font-medium">{member.username || member.email}</div>
+                                                            <div className="text-xs text-zinc-500">{member.role}</div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })
+                                        ) : (
+                                            <div className="text-sm text-zinc-500">No team members yet</div>
+                                        )}
                                     </div>
                                 </div>
 

@@ -11,11 +11,18 @@ from .models import (
     PullRequest,
 )
 
+
+class ProjectMemberInline(admin.TabularInline):
+    model = Project.members.through
+    extra = 1
+
+
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     list_display = ('name', 'created_by', 'visibility', 'status', 'created_at')
     search_fields = ('name', 'created_by__username')
     list_filter = ('visibility', 'status', 'created_at')
+    inlines = [ProjectMemberInline]
 
 @admin.register(Branch)
 class BranchAdmin(admin.ModelAdmin):

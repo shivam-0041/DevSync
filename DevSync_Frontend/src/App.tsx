@@ -85,7 +85,7 @@ function App() {
                 <Route path="/:username/project/:slug/collaborate" element={<CollaboratePage />} />
                 <Route path="/:username/account/settings" element={<AccountSettings />} />
                 <Route path="/:username/project/:slug/settings" element={<ProjectSettings />} />
-                <Route path="/:username/project/:id/manage-collaborators" element={<ManageCollaborators />} />
+                <Route path="/:username/project/:slug/manage-collaborators" element={<ManageCollaborators />} />
             </Route>
                     
         </Routes>

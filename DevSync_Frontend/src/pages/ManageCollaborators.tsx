@@ -1,6 +1,7 @@
 "use client"
-
-import { useState } from "react"
+import { ProjectInvite } from "../routes/projects"
+import { useState, useEffect } from "react"
+import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Input } from "../components/ui/input"
@@ -77,102 +78,198 @@ type Team = {
 }
 
 const ManageCollaborators = () => {
-  const { id } = useParams()
+  const { slug } = useParams()
   const [searchQuery, setSearchQuery] = useState("")
   const [newEmail, setNewEmail] = useState("")
   const [newRole, setNewRole] = useState<"admin" | "maintainer" | "developer" | "guest">("developer")
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(true)
 
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([
-    {
-      id: 1,
-      name: "Alex Johnson",
-      email: "alex@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-      role: "admin",
-      joined: "2023-01-15",
-    },
-    {
-      id: 2,
-      name: "Sarah Williams",
-      email: "sarah@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-      role: "maintainer",
-      joined: "2023-02-20",
-    },
-    {
-      id: 3,
-      name: "Michael Brown",
-      email: "michael@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-      role: "developer",
-      joined: "2023-03-10",
-    },
-    {
-      id: 4,
-      name: "Emily Davis",
-      email: "emily@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-      role: "developer",
-      joined: "2023-04-05",
-    },
-    {
-      id: 5,
-      name: "David Wilson",
-      email: "david@example.com",
-      avatar: "/placeholder.svg?height=40&width=40",
-      role: "guest",
-      joined: "2023-05-12",
-    },
-  ])
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([])
+  // const [collaborators, setCollaborators] = useState<Collaborator[]>([
+  //   {
+  //     id: 1,
+  //     name: "Alex Johnson",
+  //     email: "alex@example.com",
+  //     avatar: "/placeholder.svg?height=40&width=40",
+  //     role: "admin",
+  //     joined: "2023-01-15",
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Sarah Williams",
+  //     email: "sarah@example.com",
+  //     avatar: "/placeholder.svg?height=40&width=40",
+  //     role: "maintainer",
+  //     joined: "2023-02-20",
+  //   },
+  //   {
+  //     id: 3,
+  //     name: "Michael Brown",
+  //     email: "michael@example.com",
+  //     avatar: "/placeholder.svg?height=40&width=40",
+  //     role: "developer",
+  //     joined: "2023-03-10",
+  //   },
+  //   {
+  //     id: 4,
+  //     name: "Emily Davis",
+  //     email: "emily@example.com",
+  //     avatar: "/placeholder.svg?height=40&width=40",
+  //     role: "developer",
+  //     joined: "2023-04-05",
+  //   },
+  //   {
+  //     id: 5,
+  //     name: "David Wilson",
+  //     email: "david@example.com",
+  //     avatar: "/placeholder.svg?height=40&width=40",
+  //     role: "guest",
+  //     joined: "2023-05-12",
+  //   },
+  // ])
 
-  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([
-    {
-      id: 1,
-      email: "jennifer@example.com",
-      role: "developer",
-      invited: "2023-06-01",
-    },
-    {
-      id: 2,
-      email: "robert@example.com",
-      role: "guest",
-      invited: "2023-06-05",
-    },
-  ])
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
+  // const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([
+  //   {
+  //     id: 1,
+  //     email: "jennifer@example.com",
+  //     role: "developer",
+  //     invited: "2023-06-01",
+  //   },
+  //   {
+  //     id: 2,
+  //     email: "robert@example.com",
+  //     role: "guest",
+  //     invited: "2023-06-05",
+  //   },
+  // ])
 
-  const [teams, setTeams] = useState<Team[]>([
-    {
-      id: 1,
-      name: "Frontend Team",
-      members: 8,
-      role: "maintainer",
-    },
-    {
-      id: 2,
-      name: "Backend Team",
-      members: 6,
-      role: "developer",
-    },
-    {
-      id: 3,
-      name: "Design Team",
-      members: 4,
-      role: "developer",
-    },
-  ])
+  const [teams, setTeams] = useState<Team[]>([])
+  // const [teams, setTeams] = useState<Team[]>([
+  //   {
+  //     id: 1,
+  //     name: "Frontend Team",
+  //     members: 8,
+  //     role: "maintainer",
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Backend Team",
+  //     members: 6,
+  //     role: "developer",
+  //   },
+  //   {
+  //     id: 3,
+  //     name: "Design Team",
+  //     members: 4,
+  //     role: "developer",
+  //   },
+  // ])
 
-  const handleInvite = () => {
-    if (newEmail) {
-      const newInvite: PendingInvite = {
-        id: pendingInvites.length + 1,
+  // Fetch project members and pending invites from backend
+  useEffect(() => {
+    const fetchProjectData = async () => {
+      try {
+        const token = localStorage.getItem("access")
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        }
+
+        // Fetch project members
+        const membersResponse = await fetch(`http://localhost:8000/api/projects/${slug}/members/`, {
+          method: "GET",
+          headers,
+        })
+
+        if (membersResponse.ok) {
+          const membersData = await membersResponse.json()
+          const formattedCollaborators = membersData.members?.map((member: any) => ({
+            id: member.id,
+            name: member.user?.first_name && member.user?.last_name 
+              ? `${member.user.first_name} ${member.user.last_name}`
+              : member.user?.username || "Unknown",
+            email: member.user?.email || "",
+            avatar: member.user?.profile?.avatar || "/placeholder.svg?height=40&width=40",
+            role: member.role,
+            joined: new Date(member.created_at).toISOString().split("T")[0],
+          })) || []
+          setCollaborators(formattedCollaborators)
+        } else {
+          const errorData = await membersResponse.json().catch(() => ({}))
+          console.error("Failed to fetch members:", membersResponse.status, errorData)
+        }
+
+        // Fetch pending invites
+        const invitesResponse = await fetch(`http://localhost:8000/api/projects/${slug}/pending-invites/`, {
+          method: "GET",
+          headers,
+        })
+
+        if (invitesResponse.ok) {
+          const invitesData = await invitesResponse.json()
+          const formattedInvites = invitesData.invites?.map((invite: any, index: number) => ({
+            id: index + 1,
+            email: invite.email,
+            role: invite.role_to_assign,
+            invited: new Date(invite.created_at).toISOString().split("T")[0],
+          })) || []
+          setPendingInvites(formattedInvites)
+        } else {
+          const errorData = await invitesResponse.json().catch(() => ({}))
+          console.error("Failed to fetch invites:", invitesResponse.status, errorData)
+        }
+      } catch (error) {
+        console.error("Failed to fetch project data:", error)
+      } finally {
+        setIsLoadingData(false)
+      }
+    }
+
+    if (slug) {
+      fetchProjectData()
+    }
+  }, [slug])
+
+  const handleInvite = async () => {
+    if (!newEmail) {
+      toast.error("Please enter an email address")
+      return
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(newEmail)) {
+      toast.error("Please enter a valid email address")
+      return
+    }
+
+    try {
+      const formData = {
         email: newEmail,
         role: newRole,
-        invited: new Date().toISOString().split("T")[0],
       }
-      setPendingInvites([...pendingInvites, newInvite])
-      setNewEmail("")
-      setIsInviteDialogOpen(false)
+
+      const result = await ProjectInvite(slug, formData)
+
+      if (result.success) {
+        toast.success(`Invitation sent to ${newEmail}`)
+        const newInvite: PendingInvite = {
+          id: pendingInvites.length + 1,
+          email: newEmail,
+          role: newRole,
+          invited: new Date().toISOString().split("T")[0],
+        }
+        setPendingInvites([...pendingInvites, newInvite])
+        setNewEmail("")
+        setNewRole("developer")
+        setIsInviteDialogOpen(false)
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || "Failed to send invitation"
+      toast.error(errorMessage)
+      console.error("Invite error:", error)
     }
   }
 
@@ -213,11 +310,22 @@ const ManageCollaborators = () => {
 
   return (
     <div className="container mx-auto py-6 space-y-8">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Manage Collaborators</h1>
-          <p className="text-muted-foreground">Manage who has access to this project and what permissions they have</p>
+      {isLoadingData && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mb-3"></div>
+            <p className="text-muted-foreground">Loading project data...</p>
+          </div>
         </div>
+      )}
+      
+      {!isLoadingData && (
+      <>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Manage Collaborators</h1>
+            <p className="text-muted-foreground">Manage who has access to this project and what permissions they have</p>
+          </div>
         <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -669,6 +777,8 @@ const ManageCollaborators = () => {
           </Card>
         </TabsContent>
       </Tabs>
+      </>
+      )}
     </div>
   )
 }

@@ -1,6 +1,8 @@
 from rest_framework import serializers
-from .models import Project, CodeFile,Branch, ProjectActivity, Issue, Whiteboard, ProjectTask
+from .models import Project, CodeFile, Branch, ProjectActivity, Issue, Whiteboard, ProjectTask, ProjectInvite
 from django.contrib.auth import get_user_model
+from .utils import ProjectInviteService, ProjectInviteResponseService
+from django.db import models
 
 User = get_user_model()
 
@@ -50,6 +52,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     branches = serializers.SerializerMethodField()
     activities = serializers.SerializerMethodField()
     contributors = serializers.SerializerMethodField()
+    members = serializers.SerializerMethodField()
     issues = serializers.SerializerMethodField()
     tasks = serializers.SerializerMethodField()
     commit_count = serializers.IntegerField(source='commits_count', read_only=True)
@@ -79,6 +82,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             "whiteboard_id",
             "chat_id",
             "slug",
+            "members",
         ]
 
     # --- Custom field methods ---
@@ -122,6 +126,19 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         return [
             {"id": u.id, "username": u.username, "email": u.email}
             for u in users
+        ]
+
+    def get_members(self, obj):
+        # Return project members with their role
+        memberships = obj.userprojectrole_set.select_related('user').all()
+        return [
+            {
+                "id": m.user.id,
+                "username": m.user.username,
+                "email": m.user.email,
+                "role": m.role,
+            }
+            for m in memberships
         ]
 
     def get_readme(self, obj):
@@ -251,3 +268,99 @@ class MyAssignedTaskSerializer(serializers.ModelSerializer):
             "avatar": None,  # plug later if you add avatars
             "initials": "".join([part[0] for part in name.split()[:2]]).upper(),
         }
+    
+
+# This serializer wraps the invitation flow.  It uses the service layer
+# already defined in utils to handle sending emails and processing responses.
+# The frontend will POST to create and PATCH/PUT to respond.
+class ProjectInviteSerializer(serializers.ModelSerializer):
+    # allow frontend to submit an action when responding to an invite
+    action = serializers.CharField(write_only=True, required=False)
+    project_slug = serializers.CharField(write_only=True, required=True)
+    email = serializers.EmailField(required=True)
+    role_to_assign = serializers.CharField(required=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        model = ProjectInvite
+        fields = [
+            'id', 'email', 'role_to_assign', 'status',
+            'token', 'expires_at', 'invited_by', 'created_at', 'action', 'project_slug',
+        ]
+        read_only_fields = [
+            'id', 'status', 'token', 'expires_at', 'invited_by', 'created_at'
+        ]
+
+    def validate_project_slug(self, value):
+        # Validate and lookup project slug for create operations
+        if not value:
+            raise serializers.ValidationError('Project slug is required.')
+        try:
+            project = Project.objects.get(slug=value)
+            self.context['project'] = project
+        except Project.DoesNotExist:
+            raise serializers.ValidationError('Project not found.')
+        return value
+
+    def validate_action(self, value):
+        # only used when updating/responding
+        if value not in ('accept', 'decline'):
+            raise serializers.ValidationError('action must be "accept" or "decline"')
+        return value
+
+    def validate(self, attrs):
+        # additional cross-field validation for update operations
+        # if we're updating (instance exists) and an action is provided, ensure
+        # the requesting user matches the invite's target email.
+        if self.instance and 'action' in attrs:
+            request = self.context.get('request')
+            user = request.user if request else None
+            if not user or user.email != self.instance.email:
+                raise serializers.ValidationError(
+                    'You can only respond to invitations sent to your email address.'
+                )
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        sender = request.user if request else None
+        project_slug = validated_data.pop('project_slug', None)
+        email = validated_data.get('email')
+        role = validated_data.get('role_to_assign')
+
+        print(f"DEBUG create() - project_slug: {project_slug}, email: {email}, role: {role}, sender: {sender}")
+
+        result = ProjectInviteService.send_invite(
+            project_slug=project_slug,
+            recipient_email=email,
+            role=role,
+            sender_user=sender
+        )
+
+        print(f"DEBUG ProjectInviteService result: {result}")
+
+        if not result.get('success'):
+            raise serializers.ValidationError(result.get('message', 'Unable to create invite'))
+
+        return result['invite']
+
+    def update(self, instance, validated_data):
+        # expecting 'action' to be provided
+        action = validated_data.get('action')
+        if not action:
+            raise serializers.ValidationError({'action': 'This field is required.'})
+
+        request = self.context.get('request')
+        user = request.user if request else None
+        result = ProjectInviteResponseService.respond_to_invite(
+            token=instance.token,
+            action=action,
+            user=user
+        )
+
+        if not result.get('success'):
+            raise serializers.ValidationError(result.get('message', 'Unable to process invite response'))
+
+        # refresh instance from db so status is updated
+        instance.refresh_from_db()
+        return instance

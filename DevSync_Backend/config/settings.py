@@ -184,6 +184,10 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'infinite.02304@gmail.com'
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# Frontend URL for building invite links
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5174')
 
 
 MEDIA_URL = '/media/'

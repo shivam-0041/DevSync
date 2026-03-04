@@ -13,4 +13,12 @@ urlpatterns = [
     path("<slug:slug>/tasks/create/", views.TasksCreateView.as_view(),name="task-create"),
     path("<slug:slug>/whiteboard/<str:whiteboard_id>/", views.get_whiteboard, name="get_whiteboard"),
     path("<slug:slug>/whiteboard/<str:whiteboard_id>/update/", views.update_whiteboard, name="update_whiteboard"),
+    
+    # Project Invite endpoints
+    path("<slug:slug>/invite/", views.send_project_invite, name="send-project-invite"),
+    path("invite/respond/", views.respond_to_invite, name="respond_to_invite"),
+    
+    # Project Members and Invites endpoints
+    path("<slug:slug>/members/", views.get_project_members, name="get-project-members"),
+    path("<slug:slug>/pending-invites/", views.get_pending_invites, name="get-pending-invites"),
 ]
