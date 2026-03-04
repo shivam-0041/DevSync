@@ -129,6 +129,9 @@ const ManageCollaborators = () => {
   //   },
   // ])
 
+  //******TO DO NEXT: Write the useEffect to fetch collaborators and pending invites from the backend when the component mounts needs a backend, and api for it
+
+
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   // const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([
   //   {
@@ -178,7 +181,7 @@ const ManageCollaborators = () => {
         }
 
         // Fetch project members
-        const membersResponse = await fetch(`http://localhost:8000/api/projects/${slug}/members/`, {
+        const membersResponse = await fetch(`/api/projects/${slug}/members/`, {
           method: "GET",
           headers,
         })
@@ -202,7 +205,7 @@ const ManageCollaborators = () => {
         }
 
         // Fetch pending invites
-        const invitesResponse = await fetch(`http://localhost:8000/api/projects/${slug}/pending-invites/`, {
+        const invitesResponse = await fetch(`/api/projects/${slug}/pending-invites/`, {
           method: "GET",
           headers,
         })

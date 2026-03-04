@@ -9,6 +9,7 @@ from .models import (
     Issue,
     ProjectTask,
     PullRequest,
+    ProjectInvite,
 )
 
 
@@ -83,3 +84,43 @@ class PullRequest(admin.ModelAdmin):
     list_filter = ("status", "is_draft", "created_at", "project")
     search_fields = ("project__name", "from_branch__name", "to_branch__name", "created_by__username", "message")
     ordering = ("-created_at",)
+
+
+@admin.register(ProjectInvite)
+class ProjectInviteAdmin(admin.ModelAdmin):
+    list_display = (
+        "email",
+        "project",
+        "role_to_assign",
+        "status",
+        "invited_by",
+        "expires_at",
+        "created_at",
+        "is_expired_display",
+    )
+
+    list_filter = (
+        "status",
+        "role_to_assign",
+        "created_at",
+        "expires_at",
+    )
+
+    search_fields = (
+        "email",
+        "project__name",
+        "invited_by__username",
+    )
+
+    readonly_fields = (
+        "token",
+        "created_at",
+        "expires_at",
+    )
+
+    ordering = ("-created_at",)
+
+    def is_expired_display(self, obj):
+        return obj.is_expired()
+    is_expired_display.boolean = True
+    is_expired_display.short_description = "Expired"

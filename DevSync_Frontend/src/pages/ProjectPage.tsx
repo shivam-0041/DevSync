@@ -154,7 +154,6 @@ export default function ProjectPage() {
             setLoading(true);
             fetchProjectData(projectId)
             .then((data) => {
-                console.log(data);
                 setProject(data);
                 setIssues(data.issues || []);
             })
