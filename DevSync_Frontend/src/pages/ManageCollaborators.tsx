@@ -1,5 +1,5 @@
 "use client"
-import { ProjectInvite } from "../routes/projects"
+import { ProjectInvite, cancelProjectPendingInvite, fetchProjectMembers, fetchProjectPendingInvites } from "../routes/projects"
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -79,11 +79,13 @@ type Team = {
 
 const ManageCollaborators = () => {
   const { slug } = useParams()
+  const loggedInUser = JSON.parse(localStorage.getItem("user") || "null")
   const [searchQuery, setSearchQuery] = useState("")
   const [newEmail, setNewEmail] = useState("")
   const [newRole, setNewRole] = useState<"admin" | "maintainer" | "developer" | "guest">("developer")
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
+  const [currentUserRole, setCurrentUserRole] = useState<"admin" | "maintainer" | "developer" | "guest" | null>(null)
 
   const [collaborators, setCollaborators] = useState<Collaborator[]>([])
   // const [collaborators, setCollaborators] = useState<Collaborator[]>([
@@ -129,8 +131,7 @@ const ManageCollaborators = () => {
   //   },
   // ])
 
-  //******TO DO NEXT: Write the useEffect to fetch collaborators and pending invites from the backend when the component mounts needs a backend, and api for it
-
+ 
 
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   // const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([
@@ -170,59 +171,86 @@ const ManageCollaborators = () => {
   //   },
   // ])
 
+  const formatDateOnly = (dateValue?: string | null) => {
+    if (!dateValue) return "-"
+    const parsed = new Date(dateValue)
+    if (Number.isNaN(parsed.getTime())) return "-"
+    return parsed.toISOString().split("T")[0]
+  }
+
+  const syncSingleTeam = (members: Collaborator[]) => {
+    if (members.length === 0) {
+      setTeams([])
+      return
+    }
+
+    setTeams([
+      {
+        id: 1,
+        name: "All Collaborators",
+        members: members.length,
+        role: "developer",
+      },
+    ])
+  }
+
+  const loadCollaborators = async (projectSlug: string) => {
+    const membersResult = await fetchProjectMembers(projectSlug)
+    if (!membersResult.success) {
+      toast.error("Unable to load collaborators")
+      return
+    }
+
+    const userEmail = String(loggedInUser?.email || "").toLowerCase()
+    const userUsername = String(loggedInUser?.username || "").toLowerCase()
+    const currentMember = membersResult.members.find((member) => {
+      const memberEmail = String(member.user?.email || "").toLowerCase()
+      const memberUsername = String(member.user?.username || "").toLowerCase()
+      return (userEmail && memberEmail === userEmail) || (userUsername && memberUsername === userUsername)
+    })
+    setCurrentUserRole(currentMember?.role || null)
+
+    const formattedCollaborators: Collaborator[] = membersResult.members.map((member) => ({
+      id: member.id,
+      name:
+        member.user?.first_name && member.user?.last_name
+          ? `${member.user.first_name} ${member.user.last_name}`
+          : member.user?.username || "Unknown",
+      email: member.user?.email || "",
+      avatar: member.user?.profile?.avatar || "/placeholder.svg?height=40&width=40",
+      role: member.role,
+      joined: formatDateOnly(member.created_at),
+    }))
+
+    setCollaborators(formattedCollaborators)
+    syncSingleTeam(formattedCollaborators)
+  }
+
+  const loadPendingInvites = async (projectSlug: string) => {
+    const invitesResult = await fetchProjectPendingInvites(projectSlug)
+    if (!invitesResult.success) {
+      toast.error("Unable to load pending invitations")
+      return
+    }
+
+    const formattedInvites: PendingInvite[] = invitesResult.invites
+      .filter((invite) => String(invite.status).toLowerCase() === "pending")
+      .map((invite) => ({
+        id: invite.id,
+        email: invite.email,
+        role: invite.role_to_assign,
+        invited: formatDateOnly(invite.created_at),
+      }))
+
+    setPendingInvites(formattedInvites)
+  }
+
   // Fetch project members and pending invites from backend
   useEffect(() => {
     const fetchProjectData = async () => {
       try {
-        const token = localStorage.getItem("access")
-        const headers = {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        }
-
-        // Fetch project members
-        const membersResponse = await fetch(`/api/projects/${slug}/members/`, {
-          method: "GET",
-          headers,
-        })
-
-        if (membersResponse.ok) {
-          const membersData = await membersResponse.json()
-          const formattedCollaborators = membersData.members?.map((member: any) => ({
-            id: member.id,
-            name: member.user?.first_name && member.user?.last_name 
-              ? `${member.user.first_name} ${member.user.last_name}`
-              : member.user?.username || "Unknown",
-            email: member.user?.email || "",
-            avatar: member.user?.profile?.avatar || "/placeholder.svg?height=40&width=40",
-            role: member.role,
-            joined: new Date(member.created_at).toISOString().split("T")[0],
-          })) || []
-          setCollaborators(formattedCollaborators)
-        } else {
-          const errorData = await membersResponse.json().catch(() => ({}))
-          console.error("Failed to fetch members:", membersResponse.status, errorData)
-        }
-
-        // Fetch pending invites
-        const invitesResponse = await fetch(`/api/projects/${slug}/pending-invites/`, {
-          method: "GET",
-          headers,
-        })
-
-        if (invitesResponse.ok) {
-          const invitesData = await invitesResponse.json()
-          const formattedInvites = invitesData.invites?.map((invite: any, index: number) => ({
-            id: index + 1,
-            email: invite.email,
-            role: invite.role_to_assign,
-            invited: new Date(invite.created_at).toISOString().split("T")[0],
-          })) || []
-          setPendingInvites(formattedInvites)
-        } else {
-          const errorData = await invitesResponse.json().catch(() => ({}))
-          console.error("Failed to fetch invites:", invitesResponse.status, errorData)
-        }
+        if (!slug) return
+        await Promise.all([loadCollaborators(slug), loadPendingInvites(slug)])
       } catch (error) {
         console.error("Failed to fetch project data:", error)
       } finally {
@@ -258,13 +286,9 @@ const ManageCollaborators = () => {
 
       if (result.success) {
         toast.success(`Invitation sent to ${newEmail}`)
-        const newInvite: PendingInvite = {
-          id: pendingInvites.length + 1,
-          email: newEmail,
-          role: newRole,
-          invited: new Date().toISOString().split("T")[0],
+        if (slug) {
+          await loadPendingInvites(slug)
         }
-        setPendingInvites([...pendingInvites, newInvite])
         setNewEmail("")
         setNewRole("developer")
         setIsInviteDialogOpen(false)
@@ -276,18 +300,32 @@ const ManageCollaborators = () => {
     }
   }
 
-  const handleCancelInvite = (id: number) => {
-    setPendingInvites(pendingInvites.filter((invite) => invite.id !== id))
+  const handleCancelInvite = async (id: number) => {
+    if (!slug) {
+      toast.error("Project not found")
+      return
+    }
+
+    const result = await cancelProjectPendingInvite(slug, id)
+    if (!result.success) {
+      toast.error(result.error || "Failed to cancel invitation")
+      return
+    }
+
+    toast.success("Invitation cancelled. Invite link is now invalid.")
+    await loadPendingInvites(slug)
   }
 
   const handleRemoveCollaborator = (id: number) => {
-    setCollaborators(collaborators.filter((collaborator) => collaborator.id !== id))
+    const next = collaborators.filter((collaborator) => collaborator.id !== id)
+    setCollaborators(next)
+    syncSingleTeam(next)
   }
 
   const handleChangeRole = (id: number, role: "admin" | "maintainer" | "developer" | "guest") => {
-    setCollaborators(
-      collaborators.map((collaborator) => (collaborator.id === id ? { ...collaborator, role } : collaborator)),
-    )
+    const next = collaborators.map((collaborator) => (collaborator.id === id ? { ...collaborator, role } : collaborator))
+    setCollaborators(next)
+    syncSingleTeam(next)
   }
 
   const filteredCollaborators = collaborators.filter(
@@ -311,6 +349,8 @@ const ManageCollaborators = () => {
     }
   }
 
+  const isAdmin = currentUserRole === "admin"
+
   return (
     <div className="container mx-auto py-6 space-y-8">
       {isLoadingData && (
@@ -329,6 +369,7 @@ const ManageCollaborators = () => {
             <h1 className="text-3xl font-bold tracking-tight">Manage Collaborators</h1>
             <p className="text-muted-foreground">Manage who has access to this project and what permissions they have</p>
           </div>
+        {isAdmin && (
         <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -384,6 +425,7 @@ const ManageCollaborators = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Tabs defaultValue="collaborators" className="w-full">
@@ -644,12 +686,14 @@ const ManageCollaborators = () => {
                 </Table>
               )}
 
+              {isAdmin && (
               <div className="mt-4">
                 <Button variant="outline" onClick={() => setIsInviteDialogOpen(true)}>
                   <UserPlus className="mr-2 h-4 w-4" />
                   Send New Invitation
                 </Button>
               </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

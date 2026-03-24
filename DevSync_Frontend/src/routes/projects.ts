@@ -267,6 +267,99 @@ export async function ProjectInvite(slug,formData){
     }
 }
 
+export interface ProjectMemberResponseItem {
+    id: number;
+    user: {
+        username: string;
+        email: string;
+        first_name: string;
+        last_name: string;
+        profile?: {
+            avatar?: string | null;
+        };
+    };
+    role: "admin" | "maintainer" | "developer" | "guest";
+    created_at: string | null;
+}
+
+export interface PendingInviteResponseItem {
+    id: number;
+    email: string;
+    role_to_assign: "admin" | "maintainer" | "developer" | "guest";
+    status: "pending" | "accepted" | "declined" | "expired";
+    created_at: string;
+    expires_at: string;
+}
+
+export async function fetchProjectMembers(slug: string) {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false, members: [] as ProjectMemberResponseItem[] };
+        }
+
+        const response = await axios.get<{ members: ProjectMemberResponseItem[] }>(`${BASE_URL}${slug}/members/`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        return { success: true, members: response.data.members || [] };
+    } catch (error) {
+        console.error("Failed to fetch project members:", error);
+        return { success: false, members: [] as ProjectMemberResponseItem[] };
+    }
+}
+
+export async function fetchProjectPendingInvites(slug: string) {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false, invites: [] as PendingInviteResponseItem[] };
+        }
+
+        const response = await axios.get<{ invites: PendingInviteResponseItem[] }>(`${BASE_URL}${slug}/pending-invites/`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        return { success: true, invites: response.data.invites || [] };
+    } catch (error) {
+        console.error("Failed to fetch pending invites:", error);
+        return { success: false, invites: [] as PendingInviteResponseItem[] };
+    }
+}
+
+export async function cancelProjectPendingInvite(slug: string, inviteId: number) {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false, error: "Authentication token not found" };
+        }
+
+        const response = await axios.post(`${BASE_URL}${slug}/pending-invites/${inviteId}/cancel/`, {}, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error("Failed to cancel pending invite:", error.response?.data || error.message);
+        return {
+            success: false,
+            error: error.response?.data?.error || "Failed to cancel invitation",
+        };
+    }
+}
+
 
 
 

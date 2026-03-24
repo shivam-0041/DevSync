@@ -56,7 +56,7 @@ import { Textarea } from "../components/ui/textarea"
 import { TaskAllocation } from "../components/task-allocation"
 import { CreateTaskModal } from "../components/createtask"
 import { useParams } from "react-router-dom";
-import { fetchProjectData } from "../routes/projects"
+import { fetchProjectData, fetchProjectMembers } from "../routes/projects"
 import { useEffect, useState, useMemo } from "react"
 
 export default function ProjectPage() {
@@ -66,6 +66,7 @@ export default function ProjectPage() {
     const { id: projectId } = useParams();
     const [issues, setIssues] = useState<any[]>([])
     const loggedInUser = JSON.parse(localStorage.getItem("user"))
+    const [currentUserRole, setCurrentUserRole] = useState<"admin" | "maintainer" | "developer" | "guest" | null>(null)
     const [open, setOpen] = useState(false);
 
     const [branches, setBranches] = useState<{ name: string; created_by: string }[]>([]);
@@ -183,6 +184,27 @@ export default function ProjectPage() {
     }
         if (project.slug) fetchIssues()
     }, [project.slug])
+
+    useEffect(() => {
+        const loadRole = async () => {
+            if (!project?.slug) return
+            const membersResult = await fetchProjectMembers(project.slug)
+            if (!membersResult.success) return
+
+            const userEmail = String(loggedInUser?.email || "").toLowerCase()
+            const userUsername = String(loggedInUser?.username || "").toLowerCase()
+            const currentMember = membersResult.members.find((member) => {
+                const memberEmail = String(member.user?.email || "").toLowerCase()
+                const memberUsername = String(member.user?.username || "").toLowerCase()
+                return (userEmail && memberEmail === userEmail) || (userUsername && memberUsername === userUsername)
+            })
+            setCurrentUserRole(currentMember?.role || null)
+        }
+
+        loadRole()
+    }, [project?.slug])
+
+    const isAdmin = currentUserRole === "admin"
 
     if (loading) return (
         <div className="loader-container">
@@ -587,6 +609,7 @@ export default function ProjectPage() {
                                     <div className="flex items-center text-xs text-zinc-500 dark:text-zinc-400">
                                         <GitCommit className="h-3.5 w-3.5 mr-1" /> {project.commit_count}
                                     </div>
+                                    {isAdmin && (
                                     <div>
                                         <Link to={`/${loggedInUser.username}/project/${project.slug}/settings`}>
                                             <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-zinc-300">
@@ -594,6 +617,8 @@ export default function ProjectPage() {
                                             </Button>
                                         </Link>
                                     </div>
+                                    )}
+                                    {isAdmin && (
                                     <div className="flex items-center justify-between ">
                                         <Link to={`/${loggedInUser.username}/project/${project.slug}/manage-collaborators`}>
                                             <Button variant="ghost" className="text-zinc-400">
@@ -601,6 +626,7 @@ export default function ProjectPage() {
                                             </Button>
                                         </Link>
                                     </div>
+                                    )}
                                 </div>
                                 
                             </div>

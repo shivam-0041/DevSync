@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Project, CodeFile, Branch, ProjectActivity, Issue, Whiteboard, ProjectTask, ProjectInvite
+from .models import Project, CodeFile, Branch, ProjectActivity, Issue, Whiteboard, ProjectTask, ProjectInvite, UserProjectRole
 from django.contrib.auth import get_user_model
 from .utils import ProjectInviteService, ProjectInviteResponseService
 from django.db import models
@@ -268,6 +268,45 @@ class MyAssignedTaskSerializer(serializers.ModelSerializer):
             "avatar": None,  # plug later if you add avatars
             "initials": "".join([part[0] for part in name.split()[:2]]).upper(),
         }
+
+
+class ProjectMemberListSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    created_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserProjectRole
+        fields = ["id", "user", "role", "created_at"]
+
+    def get_user(self, obj):
+        avatar_url = None
+        profile = getattr(obj.user, "profile", None)
+        avatar = getattr(profile, "avatar", None)
+        if avatar:
+            try:
+                avatar_url = avatar.url
+            except Exception:
+                avatar_url = None
+
+        return {
+            "username": obj.user.username,
+            "email": obj.user.email,
+            "first_name": obj.user.first_name or "",
+            "last_name": obj.user.last_name or "",
+            "profile": {
+                "avatar": avatar_url
+            },
+        }
+
+    def get_created_at(self, obj):
+        # Fallback keeps frontend joined-date rendering stable even if membership timestamp is absent.
+        return getattr(obj, "created_at", None) or getattr(obj.user, "date_joined", None)
+
+
+class PendingInviteListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectInvite
+        fields = ["id", "email", "role_to_assign", "status", "created_at", "expires_at"]
     
 
 # This serializer wraps the invitation flow.  It uses the service layer
@@ -337,7 +376,7 @@ class ProjectInviteSerializer(serializers.ModelSerializer):
             sender_user=sender
         )
 
-        print(f"DEBUG ProjectInviteService result: {result}")
+        #print(f"DEBUG ProjectInviteService result: {result}")
 
         if not result.get('success'):
             raise serializers.ValidationError(result.get('message', 'Unable to create invite'))

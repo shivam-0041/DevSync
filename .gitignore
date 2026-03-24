@@ -398,3 +398,4 @@ myenv/
 .venv/
 .env
 media/avatars/*
+.vscode/

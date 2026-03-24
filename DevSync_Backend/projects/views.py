@@ -8,6 +8,8 @@ from .serializers import (
     ProjectTaskCreateSerializer,
     WhiteboardSerializer,
     ProjectInviteSerializer,
+    ProjectMemberListSerializer,
+    PendingInviteListSerializer,
 )
 from .models import Project, Whiteboard, Issue, ProjectTask, ProjectInvite
 from rest_framework.permissions import IsAuthenticated
@@ -17,6 +19,8 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from .models import Project, Whiteboard, Issue, ProjectTask
 from django.contrib.auth import get_user_model
+from django.utils.timezone import now
+from uuid import uuid4
 
 User = get_user_model()
 class CreateProjectView(generics.CreateAPIView):
@@ -33,7 +37,7 @@ class ProjectListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Project.objects.filter(created_by=user) | Project.objects.filter(members=user)
+        return (Project.objects.filter(created_by=user) | Project.objects.filter(members=user)).distinct().order_by("-created_at")
 
 class PublicProjectListView(generics.ListAPIView):
     serializer_class = ProjectListSerializer
@@ -56,7 +60,7 @@ class ProjectDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        return Project.objects.filter(created_by=user) | Project.objects.filter(members=user)
+        return (Project.objects.filter(created_by=user) | Project.objects.filter(members=user)).distinct()
 
 class ProjectUpdateView(generics.UpdateAPIView):
     serializer_class = ProjectCreateSerializer  # reuse same as creation
@@ -284,37 +288,13 @@ def get_project_members(request, slug):
     except Project.DoesNotExist:
         return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
     
-    # Get all members via UserProjectRole
-    members_data = []
     try:
-        user_roles = UserProjectRole.objects.filter(project=project)
-        for user_role in user_roles:
-            # Safely handle avatar URL
-            avatar_url = None
-            try:
-                if hasattr(user_role.user, 'profile') and user_role.user.profile and user_role.user.profile.avatar:
-                    avatar_url = user_role.user.profile.avatar.url
-            except Exception as e:
-                print(f"Error getting avatar URL: {e}")
-            
-            members_data.append({
-                'id': user_role.id,
-                'user': {
-                    'username': user_role.user.username,
-                    'email': user_role.user.email,
-                    'first_name': user_role.user.first_name or '',
-                    'last_name': user_role.user.last_name or '',
-                    'profile': {
-                        'avatar': avatar_url
-                    }
-                },
-                'role': user_role.role,
-                'created_at': user_role.created_at
-            })
+        user_roles = UserProjectRole.objects.filter(project=project).select_related('user')
+        members_data = ProjectMemberListSerializer(user_roles, many=True).data
     except Exception as e:
         print(f"Error fetching members: {e}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
     return Response({'members': members_data}, status=status.HTTP_200_OK)
 
 
@@ -338,20 +318,50 @@ def get_pending_invites(request, slug):
     except Project.DoesNotExist:
         return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
     
-    # Get all pending invites for this project
-    invites_data = []
     try:
-        pending_invites = ProjectInvite.objects.filter(project=project, status='pending')
-        for invite in pending_invites:
-            invites_data.append({
-                'id': invite.id,
-                'email': invite.email,
-                'role_to_assign': invite.role_to_assign,
-                'status': invite.status,
-                'created_at': invite.created_at,
-                'expires_at': invite.expires_at
-            })
+        pending_invites = ProjectInvite.objects.filter(project=project, status__iexact='pending').order_by('-created_at')
+        invites_data = PendingInviteListSerializer(pending_invites, many=True).data
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
     return Response({'invites': invites_data}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cancel_pending_invite(request, slug, invite_id):
+    """
+    Cancel a pending invite.
+
+    - Only project admins can cancel.
+    - Invite is marked as expired.
+    - Old token is invalidated so invite link can no longer be used.
+    """
+    from .models import UserProjectRole
+
+    try:
+        project = Project.objects.get(slug=slug)
+    except Project.DoesNotExist:
+        return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    user_role = UserProjectRole.objects.filter(user=request.user, project=project).first()
+    if not user_role or user_role.role != 'admin':
+        return Response({'error': 'Only project admins can cancel invitations.'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        invite = ProjectInvite.objects.get(id=invite_id, project=project)
+    except ProjectInvite.DoesNotExist:
+        return Response({'error': 'Invitation not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if str(invite.status).lower() != 'pending':
+        return Response(
+            {'error': f'Only pending invites can be cancelled. Current status: {invite.status}.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    invite.status = 'expired'
+    invite.expires_at = now()
+    invite.token = f"revoked-{uuid4().hex}"
+    invite.save(update_fields=['status', 'expires_at', 'token'])
+
+    return Response({'message': 'Invitation cancelled successfully.'}, status=status.HTTP_200_OK)

@@ -21,4 +21,5 @@ urlpatterns = [
     # Project Members and Invites endpoints
     path("<slug:slug>/members/", views.get_project_members, name="get-project-members"),
     path("<slug:slug>/pending-invites/", views.get_pending_invites, name="get-pending-invites"),
+    path("<slug:slug>/pending-invites/<int:invite_id>/cancel/", views.cancel_pending_invite, name="cancel-pending-invite"),
 ]
