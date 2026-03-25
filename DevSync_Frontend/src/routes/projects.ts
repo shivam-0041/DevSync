@@ -92,7 +92,7 @@ export async function fetchPublicProjects(username: string) {
 }
 
 
-export async function fetchProjectData(projectId) {
+export async function fetchProjectData(projectId: string) {
 
     try {
         const token = localStorage.getItem("access");
@@ -111,6 +111,38 @@ export async function fetchProjectData(projectId) {
     } catch (error) {
         console.error("Failed to fetch project data:", error);
         throw error;
+    }
+};
+
+/**
+ * Fetches code files for a project
+ * Returns hierarchical nested folder/file tree with metadata
+ * data includes: id, name, item_type, file_url, size, uploaded_at, uploaded_by, branch, children
+ */
+export async function fetchProjectFiles(projectId: string) {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false, files: [] };
+        }
+
+        const response = await axios.get(`${BASE_URL}${projectId}/`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        
+        // Files are included in the main project response via ProjectDetailSerializer
+        return { 
+            success: true, 
+            files: response.data?.files || [],
+            data: response.data 
+        };
+    } catch (error) {
+        console.error("Failed to fetch project files:", error);
+        return { success: false, files: [], error };
     }
 };
 
@@ -356,6 +388,182 @@ export async function cancelProjectPendingInvite(slug: string, inviteId: number)
         return {
             success: false,
             error: error.response?.data?.error || "Failed to cancel invitation",
+        };
+    }
+}
+
+/**
+ * Upload files to a project
+ * @param projectSlug - The project slug
+ * @param files - File objects or File array to upload
+ * @param parentId - (optional) Parent folder ID for nested uploads
+ * @param branch - (optional) Branch name, defaults to 'main'
+ * @returns Promise with success status, uploaded file count, and updated file tree
+ */
+export async function uploadFiles(
+    projectSlug: string,
+    files: File[] | File,
+    parentId?: number,
+    branch?: string
+) {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false, error: "No authentication token found" };
+        }
+
+        const formData = new FormData();
+        
+        // Handle both single file and multiple files
+        const fileArray = Array.isArray(files) ? files : [files];
+        const pathsList: string[] = [];
+        
+        fileArray.forEach((file) => {
+            formData.append("files", file);
+            // Send webkitRelativePath for nested folder structure preservation
+            const filePath = (file as any).webkitRelativePath || file.name;
+            pathsList.push(filePath);
+            console.log("Uploading file with path:", filePath, "webkitRelativePath:", (file as any).webkitRelativePath);
+            formData.append("file_paths", filePath);
+        });
+        
+        console.log("Total files:", fileArray.length, "Paths:", pathsList);
+
+        if (parentId) {
+            formData.append("parent_id", parentId.toString());
+        }
+
+        if (branch) {
+            formData.append("branch", branch);
+        }
+
+        const response = await axios.post(
+            `${BASE_URL}${projectSlug}/files/upload/`,
+            formData,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "multipart/form-data",
+                },
+            }
+        );
+
+        return {
+            success: true,
+            message: response.data.message,
+            uploadedCount: response.data.uploaded_count,
+            files: response.data.files,
+            data: response.data,
+        };
+    } catch (error) {
+        console.error("Failed to upload files:", error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Upload failed",
+            uploadedCount: 0,
+        };
+    }
+}
+
+/**
+ * Delete a file or folder from a project
+ * @param projectSlug - The project slug
+ * @param fileId - The file/folder ID to delete
+ * @param fileName - The file name (required for confirmation)
+ * @returns Promise with success status and updated file tree
+ */
+export async function deleteFile(
+    projectSlug: string,
+    fileId: number,
+    fileName: string
+) {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false, error: "No authentication token found" };
+        }
+
+        const response = await axios.delete(
+            `${BASE_URL}${projectSlug}/files/${fileId}/delete/`,
+            {
+                data: { file_name: fileName },
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+
+        return {
+            success: true,
+            message: response.data.message,
+            files: response.data.files,
+            data: response.data,
+        };
+    } catch (error: any) {
+        console.error("Failed to delete file:", error);
+        return {
+            success: false,
+            error: error.response?.data?.error || "Delete failed",
+        };
+    }
+}
+
+/**
+ * Download all project files as a ZIP archive
+ * @param projectSlug - The project slug
+ * @param branch - (optional) Branch name, defaults to 'main'
+ * @returns Success status or error
+ */
+export async function downloadFiles(
+    projectSlug: string,
+    branch?: string
+) {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false, error: "No authentication token found" };
+        }
+
+        const params = new URLSearchParams();
+        if (branch) {
+            params.append("branch", branch);
+        }
+
+        const response = await axios.get(
+            `${BASE_URL}${projectSlug}/files/download/?${params.toString()}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                responseType: "blob",
+            }
+        );
+
+        // Create a blob URL and trigger download
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `${projectSlug}-${branch || "main"}.zip`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        return {
+            success: true,
+            message: "Files downloaded successfully",
+        };
+    } catch (error) {
+        console.error("Failed to download files:", error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Download failed",
         };
     }
 }

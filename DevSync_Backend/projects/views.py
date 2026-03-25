@@ -11,13 +11,12 @@ from .serializers import (
     ProjectMemberListSerializer,
     PendingInviteListSerializer,
 )
-from .models import Project, Whiteboard, Issue, ProjectTask, ProjectInvite
+from .models import Project, Whiteboard, Issue, ProjectTask, ProjectInvite, Branch, CodeFile, UserProjectRole
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
-from .models import Project, Whiteboard, Issue, ProjectTask
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 from uuid import uuid4
@@ -365,3 +364,352 @@ def cancel_pending_invite(request, slug, invite_id):
     invite.save(update_fields=['status', 'expires_at', 'token'])
 
     return Response({'message': 'Invitation cancelled successfully.'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_files(request, slug):
+    """
+    Upload files/folders to a project.
+    
+    Expects multipart/form-data with:
+    - files: File objects to upload
+    - parent_id: (optional) Parent folder ID for nested uploads
+    - branch: (optional) Branch name, defaults to 'main'
+    
+    Returns:
+    - 201: Files uploaded successfully with file tree
+    - 400: Invalid request
+    - 404: Project not found
+    - 403: User not authorized
+    - 401: User not authenticated
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+    except Project.DoesNotExist:
+        return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Check if user is a member with upload permission
+    if request.user not in project.members.all() and request.user != project.created_by:
+        return Response({'error': 'You do not have permission to upload files to this project.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    files = request.FILES.getlist('files')
+    file_paths = request.POST.getlist('file_paths')
+    parent_id = request.data.get('parent_id')
+    branch_name = request.data.get('branch', 'main')
+    
+    if not files:
+        return Response({'error': 'No files provided.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Get or create branch
+    branch, _ = Branch.objects.get_or_create(
+        project=project,
+        name=branch_name,
+        defaults={'created_by': request.user}
+    )
+    
+    # Get parent folder if specified
+    parent_folder = None
+    if parent_id:
+        try:
+            parent_folder = CodeFile.objects.get(id=parent_id, project=project, item_type='folder')
+        except CodeFile.DoesNotExist:
+            return Response({'error': 'Parent folder not found.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    uploaded_files = []
+    
+    # Process each uploaded file
+    for idx, file_obj in enumerate(files):
+        # Use provided path if available, otherwise fall back to filename
+        file_path = file_paths[idx] if idx < len(file_paths) else file_obj.name
+        # Fallback to file_obj.name if path is empty
+        if not file_path:
+            file_path = file_obj.name
+        
+        path_parts = file_path.split('/')
+        
+        current_parent = parent_folder
+        
+        # Create folder structure if needed
+        for i, part in enumerate(path_parts[:-1]):
+            if part:  # Skip empty parts
+                folder, _ = CodeFile.objects.get_or_create(
+                    project=project,
+                    branch=branch,
+                    parent=current_parent,
+                    name=part,
+                    item_type='folder',
+                    defaults={'uploaded_by': request.user}
+                )
+                current_parent = folder
+        
+        # Create the file
+        filename = path_parts[-1]
+        code_file = CodeFile.objects.create(
+            project=project,
+            branch=branch,
+            parent=current_parent,
+            name=filename,
+            item_type='file',
+            file=file_obj,
+            uploaded_by=request.user
+        )
+        uploaded_files.append(code_file)
+    
+    # Return updated file tree
+    all_files = CodeFile.objects.filter(
+        project=project,
+        branch=branch,
+        parent__isnull=True
+    ).select_related('parent', 'uploaded_by', 'branch').prefetch_related('children').order_by('name')
+    
+    def serialize_file_tree(files):
+        result = []
+        for f in files:
+            item = {
+                'id': f.id,
+                'name': f.name,
+                'item_type': f.item_type,
+                'uploaded_at': f.uploaded_at.isoformat() if f.uploaded_at else None,
+                'uploaded_by': f.uploaded_by.username if f.uploaded_by else None,
+                'size': f.file.size if f.file else None,
+                'filetype': f.filetype,
+            }
+            if f.item_type == 'folder' and f.children.exists():
+                item['children'] = serialize_file_tree(f.children.all())
+            else:
+                item['children'] = []
+            result.append(item)
+        return result
+    
+    return Response({
+        'message': f'{len(uploaded_files)} file(s) uploaded successfully.',
+        'files': serialize_file_tree(all_files),
+        'uploaded_count': len(uploaded_files)
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_file(request, slug, file_id):
+    """
+    Delete a file or folder from a project.
+    
+    Only project admins can delete files.
+    
+    URL parameters:
+    - slug: str (project slug)
+    - file_id: int (file/folder ID to delete)
+    
+    Request body:
+    - file_name: str (required for confirmation - must match the actual file name)
+    
+    Returns:
+    - 200: File deleted successfully with updated file tree
+    - 400: Invalid request or name doesn't match
+    - 403: User is not an admin
+    - 404: Project or file not found
+    - 401: User not authenticated
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+    except Project.DoesNotExist:
+        return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Check if user is admin
+    user_role = UserProjectRole.objects.filter(user=request.user, project=project).first()
+    if not user_role or user_role.role != 'admin':
+        return Response({'error': 'Only project admins can delete files.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # Get the file
+    try:
+        code_file = CodeFile.objects.get(id=file_id, project=project)
+    except CodeFile.DoesNotExist:
+        return Response({'error': 'File not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Verify file name for confirmation
+    file_name_confirmation = request.data.get('file_name', '').strip()
+    if file_name_confirmation != code_file.name:
+        return Response({
+            'error': 'File name does not match. Deletion cancelled.',
+            'expected_name': code_file.name
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # If it's a folder, delete all children recursively
+    if code_file.item_type == 'folder':
+        code_file.delete()  # CASCADE delete handles children
+        deletion_message = f"Folder '{code_file.name}' and all contents deleted successfully."
+    else:
+        code_file.delete()
+        deletion_message = f"File '{code_file.name}' deleted successfully."
+    
+    # Get updated file tree
+    branch = code_file.branch
+    all_files = CodeFile.objects.filter(
+        project=project,
+        branch=branch,
+        parent__isnull=True
+    ).select_related('parent', 'uploaded_by', 'branch').prefetch_related('children').order_by('name')
+    
+    def serialize_file_tree(files):
+        result = []
+        for f in files:
+            item = {
+                'id': f.id,
+                'name': f.name,
+                'item_type': f.item_type,
+                'uploaded_at': f.uploaded_at.isoformat() if f.uploaded_at else None,
+                'uploaded_by': f.uploaded_by.username if f.uploaded_by else None,
+                'size': f.file.size if f.file else None,
+                'filetype': f.filetype,
+            }
+            if f.item_type == 'folder' and f.children.exists():
+                item['children'] = serialize_file_tree(f.children.all())
+            else:
+                item['children'] = []
+            result.append(item)
+        return result
+    
+    return Response({
+        'message': deletion_message,
+        'files': serialize_file_tree(all_files),
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def download_files(request, slug):
+    """
+    Download all project files as a ZIP archive.
+    
+    URL parameters:
+    - slug: str (project slug)
+    
+    Query parameters:
+    - branch: str (optional, defaults to 'main')
+    
+    Returns:
+    - 200: ZIP file download
+    - 404: Project not found
+    - 401: User not authenticated
+    """
+    from django.http import FileResponse
+    import zipfile
+    import io
+    
+    try:
+        project = Project.objects.get(slug=slug)
+    except Project.DoesNotExist:
+        return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Check if user is a member or project owner
+    if request.user not in project.members.all() and request.user != project.created_by:
+        return Response({'error': 'You do not have permission to download files from this project.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    branch_name = request.query_params.get('branch', 'main')
+    
+    # Get all files for the project/branch
+    all_files = CodeFile.objects.filter(
+        project=project,
+        branch__name=branch_name,
+    ).select_related('parent', 'branch')
+    
+    # Create an in-memory ZIP file
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Function to build folder paths for files
+        def get_file_path(code_file):
+            """Build the full path for a file in the archive"""
+            path_parts = []
+            current = code_file
+            
+            while current:
+                path_parts.insert(0, current.name)
+                current = current.parent
+            
+            return '/'.join(path_parts)
+        
+        # Add each file to the ZIP
+        for file_obj in all_files:
+            if file_obj.item_type == 'file' and file_obj.file:
+                file_path = get_file_path(file_obj)
+                zip_file.write(
+                    file_obj.file.path,
+                    arcname=file_path
+                )
+            elif file_obj.item_type == 'folder':
+                # Add folder entry (empty folders)
+                folder_path = get_file_path(file_obj) + '/'
+                zip_file.writestr(zipfile.ZipInfo(folder_path), '')
+    
+    zip_buffer.seek(0)
+    
+    # Return ZIP file as download
+    response = FileResponse(
+        zip_buffer,
+        content_type='application/zip',
+        as_attachment=True,
+        filename=f'{project.slug}-{branch_name}.zip'
+    )
+    
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_folder_contents(request, slug, folder_id):
+    """
+    Get the contents of a specific folder in a project.
+    
+    URL parameters:
+    - slug: str (project slug)
+    - folder_id: int (folder ID)
+    
+    Returns:
+    - 200: Folder contents with nested structure
+    - 404: Folder or project not found
+    - 401: User not authenticated
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+    except Project.DoesNotExist:
+        return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Check if user is a member or project owner
+    if request.user not in project.members.all() and request.user != project.created_by:
+        return Response({'error': 'You do not have permission to access this project.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        folder = CodeFile.objects.get(id=folder_id, project=project, item_type='folder')
+    except CodeFile.DoesNotExist:
+        return Response({'error': 'Folder not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Get children of the folder
+    children = CodeFile.objects.filter(parent=folder, project=project).select_related('parent', 'uploaded_by').prefetch_related('children').order_by('name')
+    
+    def serialize_file_tree(files):
+        result = []
+        for f in files:
+            item = {
+                'id': f.id,
+                'name': f.name,
+                'item_type': f.item_type,
+                'uploaded_at': f.uploaded_at.isoformat() if f.uploaded_at else None,
+                'uploaded_by': f.uploaded_by.username if f.uploaded_by else None,
+                'size': f.file.size if f.file else None,
+                'filetype': f.filetype,
+            }
+            if f.item_type == 'folder' and f.children.exists():
+                item['children'] = serialize_file_tree(f.children.all())
+            else:
+                item['children'] = []
+            result.append(item)
+        return result
+    
+    return Response({
+        'id': folder.id,
+        'name': folder.name,
+        'item_type': folder.item_type,
+        'children': serialize_file_tree(children)
+    }, status=status.HTTP_200_OK)

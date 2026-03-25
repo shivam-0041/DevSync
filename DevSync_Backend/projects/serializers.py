@@ -50,6 +50,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
 class ProjectDetailSerializer(serializers.ModelSerializer):
     created_by = serializers.SerializerMethodField()
     branches = serializers.SerializerMethodField()
+    files = serializers.SerializerMethodField()
     activities = serializers.SerializerMethodField()
     contributors = serializers.SerializerMethodField()
     members = serializers.SerializerMethodField()
@@ -69,6 +70,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             "visibility",
             "created_by",
             "branches",
+            "files",
             "activities",
             "contributors",
             "tasks",
@@ -104,6 +106,51 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             }
             for branch in obj.branches.all()
         ]
+
+    def get_files(self, obj):
+        """
+        Return project code files as a nested tree for frontend rendering.
+        Each folder includes its children recursively.
+        """
+        code_files = obj.files.select_related("parent", "uploaded_by", "branch").all().order_by("name")
+
+        file_map = {}
+        roots = []
+
+        for code_file in code_files:
+            file_url = None
+            file_size = None
+            if code_file.file:
+                try:
+                    file_url = code_file.file.url
+                except Exception:
+                    file_url = None
+                try:
+                    file_size = code_file.file.size
+                except Exception:
+                    file_size = None
+
+            file_map[code_file.id] = {
+                "id": code_file.id,
+                "name": code_file.name,
+                "item_type": code_file.item_type,
+                "filetype": code_file.filetype,
+                "file_url": file_url,
+                "size": file_size,
+                "uploaded_at": code_file.uploaded_at,
+                "uploaded_by": code_file.uploaded_by.username if code_file.uploaded_by else None,
+                "branch": code_file.branch.name if code_file.branch else None,
+                "children": [],
+            }
+
+        for code_file in code_files:
+            current = file_map[code_file.id]
+            if code_file.parent_id and code_file.parent_id in file_map:
+                file_map[code_file.parent_id]["children"].append(current)
+            else:
+                roots.append(current)
+
+        return roots
 
     def get_activities(self, obj):
         return [

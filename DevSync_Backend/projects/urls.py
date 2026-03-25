@@ -14,6 +14,12 @@ urlpatterns = [
     path("<slug:slug>/whiteboard/<str:whiteboard_id>/", views.get_whiteboard, name="get_whiteboard"),
     path("<slug:slug>/whiteboard/<str:whiteboard_id>/update/", views.update_whiteboard, name="update_whiteboard"),
     
+    # File upload endpoint
+    path("<slug:slug>/files/upload/", views.upload_files, name="upload-files"),
+    path("<slug:slug>/files/<int:file_id>/delete/", views.delete_file, name="delete-file"),
+    path("<slug:slug>/files/download/", views.download_files, name="download-files"),
+    path("<slug:slug>/folder/<int:folder_id>/", views.get_folder_contents, name="get-folder-contents"),
+    
     # Project Invite endpoints
     path("<slug:slug>/invite/", views.send_project_invite, name="send-project-invite"),
     path("invite/respond/", views.respond_to_invite, name="respond_to_invite"),

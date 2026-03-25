@@ -1,4 +1,4 @@
-import {Link} from "react-router-dom"
+import {Link, useParams, useNavigate} from "react-router-dom"
 import { formatDistanceToNow } from "date-fns"
 import {
     Code,
@@ -28,6 +28,8 @@ import {
     Settings,
     Users,
     GitCommitIcon as CommitIcon,
+    Upload,
+    Trash2,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -55,17 +57,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "../components/ui/textarea"
 import { TaskAllocation } from "../components/task-allocation"
 import { CreateTaskModal } from "../components/createtask"
-import { useParams } from "react-router-dom";
-import { fetchProjectData, fetchProjectMembers } from "../routes/projects"
-import { useEffect, useState, useMemo } from "react"
+import { fetchProjectData, fetchProjectMembers, uploadFiles, deleteFile, downloadFiles } from "../routes/projects"
+import { useEffect, useState, useMemo, useRef } from "react"
+
+// Type definitions
+interface FileItemData {
+    id: number;
+    name: string;
+    item_type: "file" | "folder";
+    filetype?: string;
+    file_url?: string;
+    size?: number;
+    uploaded_at?: string;
+    uploaded_by?: string;
+    branch?: string;
+    children?: FileItemData[];
+    depth?: number;
+}
+
+interface ActivityItemData {
+    id: number;
+    user: string;
+    action: string;
+    timestamp: string;
+    created_at: string;
+}
+
+interface LanguageData {
+    name: string;
+    percentage: number;
+    color: string;
+}
 
 export default function ProjectPage() {
     // In a real app, we would fetch the project data based on the ID
     //const projectId = params.id
     const [loading, setLoading] = useState(true);
     const { id: projectId } = useParams();
+    const navigate = useNavigate();
     const [issues, setIssues] = useState<any[]>([])
-    const loggedInUser = JSON.parse(localStorage.getItem("user"))
+    const loggedInUser = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user") || "{}") : {}
     const [currentUserRole, setCurrentUserRole] = useState<"admin" | "maintainer" | "developer" | "guest" | null>(null)
     const [open, setOpen] = useState(false);
 
@@ -128,7 +159,6 @@ export default function ProjectPage() {
         name: "",
         description: "",
         visibility: "private",
-        languages: "",     
         branches: [],
         branch_count: 0,       
         stars: 0,
@@ -147,8 +177,205 @@ export default function ProjectPage() {
         status: "active", 
         whiteboard_id: "",
         chat_id: "",
+        files: [],
+        activities: [],
+        languages: [],
   });
-    
+
+    // File upload refs
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const folderInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
+
+    // Handle file selection from input
+    const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.currentTarget.files;
+        if (!files || files.length === 0) return;
+
+        setIsUploading(true);
+        try {
+            const fileArray = Array.from(files);
+            const result = await uploadFiles(project.slug, fileArray, undefined, currentBranch);
+            
+            if (result.success) {
+                // Update project files with new data
+                setProject((prev: any) => ({
+                    ...prev,
+                    files: result.files || prev.files,
+                }));
+                toast.success(`${result.uploadedCount} file(s) uploaded successfully`);
+            } else {
+                toast.error(result.error || "Failed to upload files");
+            }
+        } catch (error) {
+            toast.error("Upload failed");
+            console.error("Upload error:", error);
+        } finally {
+            setIsUploading(false);
+            // Reset input
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+            if (folderInputRef.current) {
+                folderInputRef.current.value = "";
+            }
+        }
+    };
+
+    // Open file picker
+    const handleOpenFilePicker = () => {
+        fileInputRef.current?.click();
+    };
+
+    // Open folder picker
+    const handleOpenFolderPicker = () => {
+        folderInputRef.current?.click();
+    };
+
+    // Delete confirmation state
+    const [deleteConfirmation, setDeleteConfirmation] = useState<{
+        isOpen: boolean;
+        fileId: number | null;
+        fileName: string;
+        fileNameInput: string;
+    }>({
+        isOpen: false,
+        fileId: null,
+        fileName: "",
+        fileNameInput: "",
+    });
+
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // Open delete confirmation dialog
+    const handleOpenDeleteDialog = (fileId: number, fileName: string) => {
+        setDeleteConfirmation({
+            isOpen: true,
+            fileId,
+            fileName,
+            fileNameInput: "",
+        });
+    };
+
+    // Close delete confirmation dialog
+    const handleCloseDeleteDialog = () => {
+        setDeleteConfirmation({
+            isOpen: false,
+            fileId: null,
+            fileName: "",
+            fileNameInput: "",
+        });
+    };
+
+    // Handle file deletion
+    const handleConfirmDelete = async () => {
+        if (
+            !deleteConfirmation.fileId ||
+            deleteConfirmation.fileNameInput.trim() !== deleteConfirmation.fileName
+        ) {
+            toast.error("File name does not match. Please try again.");
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            const result = await deleteFile(
+                project.slug,
+                deleteConfirmation.fileId,
+                deleteConfirmation.fileName
+            );
+
+            if (result.success) {
+                setProject((prev: any) => ({
+                    ...prev,
+                    files: result.files || prev.files,
+                }));
+                toast.success(result.message || "File deleted successfully");
+                handleCloseDeleteDialog();
+            } else {
+                toast.error(result.error || "Failed to delete file");
+            }
+        } catch (error) {
+            toast.error("Delete failed");
+            console.error("Delete error:", error);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    // Handle download
+    const handleDownload = async () => {
+        try {
+            const result = await downloadFiles(project.slug, currentBranch);
+            if (result.success) {
+                toast.success("Download started");
+            } else {
+                toast.error(result.error || "Failed to download files");
+            }
+        } catch (error) {
+            toast.error("Download failed");
+            console.error("Download error:", error);
+        }
+    };
+
+    // Handle folder navigation
+    const handleFolderClick = (folderId: number, folderName: string) => {
+        navigate(`/${project.created_by?.username}/project/${project.slug}/collaborate?folder=${folderId}`, {
+            state: { folderName, projectSlug: project.slug }
+        });
+    };
+
+    // Helper function to flatten nested file tree
+    const flattenProjectFiles = (files: FileItemData[]): FileItemData[] => {
+        if (!Array.isArray(files)) return []
+        const result: FileItemData[] = []
+        
+        const traverse = (items: FileItemData[], depth: number = 0) => {
+            items.forEach((item) => {
+                result.push({
+                    ...item,
+                    depth,
+                })
+                if (item.children && item.children.length > 0) {
+                    traverse(item.children, depth + 1)
+                }
+            })
+        }
+        
+        traverse(files)
+        return result
+    }
+
+    // Helper function to format file size
+    const formatFileSize = (bytes?: number): string => {
+        if (!bytes) return "0 B"
+        const k = 1024
+        const sizes = ["B", "KB", "MB", "GB"]
+        const i = Math.floor(Math.log(bytes) / Math.log(k))
+        return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
+    }
+
+    // Memoize processed file rows
+    const fileRows = useMemo(() => {
+        if (!project.files || project.files.length === 0) return []
+        return flattenProjectFiles(project.files)
+    }, [project.files])
+
+    // Memoize recent activities
+    const recentActivities = useMemo(() => {
+        if (!project.activities || project.activities.length === 0) return []
+        return project.activities.slice(0, 3)
+    }, [project.activities])
+
+    // Memoize language breakdown
+    const languageRows = useMemo(() => {
+        if (!project.languages || typeof project.languages !== 'object') return []
+        const langs = Array.isArray(project.languages) ? project.languages : Object.entries(project.languages).map(([name, percentage]) => ({
+            name,
+            percentage,
+        }))
+        return langs.slice(0, 5)
+    }, [project.languages])
 
     useEffect( () => {
         if (projectId) {
@@ -685,16 +912,89 @@ export default function ProjectPage() {
                                             <span>{formatDistanceToNow(new Date(project.updated_at), { addSuffix: true })}</span>
                                         </div>
                                         <div className="flex gap-2">
-                                            <Button variant="outline" size="sm">
-                                                <Share2 className="h-4 w-4 mr-1" /> Clone
-                                            </Button>
-                                            <Button variant="outline" size="sm">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm"
+                                                        disabled={isUploading}
+                                                    >
+                                                        <Upload className="h-4 w-4 mr-1" /> {isUploading ? "Uploading..." : "Upload"}
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={handleOpenFilePicker}>
+                                                        <FileCode className="h-4 w-4 mr-2" />
+                                                        Upload Files
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={handleOpenFolderPicker}>
+                                                        <Folder className="h-4 w-4 mr-2" />
+                                                        Upload Folder
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={handleDownload}
+                                            >
                                                 <Download className="h-4 w-4 mr-1" /> Download
                                             </Button>
                                         </div>
                                     </div>
 
+                                    {/* Hidden file inputs */}
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        multiple
+                                        onChange={handleFileSelect}
+                                        className="hidden"
+                                        accept="*"
+                                    />
+                                    <input
+                                        ref={folderInputRef}
+                                        type="file"
+                                        multiple
+                                        onChange={handleFileSelect}
+                                        className="hidden"
+                                        webkitdirectory="true"
+                                    />
+
                                     <div className="p-4">
+                                        {/* File list - Real data from backend */}
+                                        {fileRows && fileRows.length > 0 ? (
+                                            <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden mb-4">
+                                                <div className="bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800 px-4 py-2 flex items-center gap-3 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                                    <div className="flex-1">Name</div>
+                                                    <div className="w-12 text-right">Size</div>
+                                                    <div className="w-24 text-right">Modified</div>
+                                                </div>
+                                                <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                                    {fileRows.map((file: FileItemData) => (
+                                                        <FileItem
+                                                            key={file.id}
+                                                            name={file.name}
+                                                            type={file.item_type}
+                                                            size={formatFileSize(file.size)}
+                                                            lastUpdated={file.uploaded_at ? formatDistanceToNow(new Date(file.uploaded_at), { addSuffix: true }) : "unknown"}
+                                                            depth={(file as any).depth || 0}
+                                                            fileId={file.id}
+                                                            isAdmin={isAdmin}
+                                                            onDelete={handleOpenDeleteDialog}
+                                                            onFolderClick={handleFolderClick}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="border border-zinc-200 dark:border-zinc-800 rounded-md mb-4 p-4 text-center text-zinc-500">
+                                                No files uploaded yet
+                                            </div>
+                                        )}
+
+                                        {/* Mock data - commented out for reference */}
+                                        {/* 
                                         <div className="border border-zinc-200 dark:border-zinc-800 rounded-md mb-4">
                                             <div className="bg-zinc-50 dark:bg-zinc-900 p-3 border-b border-zinc-200 dark:border-zinc-800">
                                                 <div className="flex items-center gap-2">
@@ -712,6 +1012,7 @@ export default function ProjectPage() {
                                                 <FileItem name="UserProfile.jsx" type="file" size="3.5 KB" lastUpdated="1 week ago" />
                                             </div>
                                         </div>
+                                        */}
 
                                         <div className="border border-zinc-200 dark:border-zinc-800 rounded-md">
                                             <div className="bg-zinc-50 dark:bg-zinc-900 p-3 border-b border-zinc-200 dark:border-zinc-800">
@@ -929,6 +1230,22 @@ export default function ProjectPage() {
                                 <CardTitle className="text-sm">Recent Activity</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
+                                {/* Real activity data from backend */}
+                                {recentActivities && recentActivities.length > 0 ? (
+                                    recentActivities.map((activity: any) => (
+                                        <ActivityItem
+                                            key={activity.id}
+                                            user={{ name: activity.user || "Unknown", initials: (activity.user || "?")[0].toUpperCase() }}
+                                            action={activity.action || ""}
+                                            time={activity.created_at ? formatDistanceToNow(new Date(activity.created_at), { addSuffix: true }) : "unknown"}
+                                        />
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-zinc-500">No recent activity</p>
+                                )}
+
+                                {/* Mock activity data - commented out for reference */}
+                                {/*
                                 <ActivityItem user={{ name: "Alex Kim", initials: "AK" }} action="pushed to main" time="2 hours ago" />
                                 <ActivityItem
                                     user={{ name: "Maria Torres", initials: "MT" }}
@@ -940,6 +1257,7 @@ export default function ProjectPage() {
                                     action="created pull request #15"
                                     time="3 days ago"
                                 />
+                                */}
                             </CardContent>
                         </Card>
 
@@ -948,6 +1266,31 @@ export default function ProjectPage() {
                                 <CardTitle className="text-sm">Languages</CardTitle>
                             </CardHeader>
                             <CardContent>
+                                <div className="space-y-2">
+                                    {/* Real language data from backend */}
+                                    {languageRows && languageRows.length > 0 ? (
+                                        languageRows.map((lang: any, idx: number) => {
+                                            const percentage = typeof lang.percentage === 'number' ? lang.percentage : 0
+                                            const colors = ["bg-yellow-500", "bg-blue-500", "bg-red-500", "bg-green-500", "bg-purple-500"]
+                                            return (
+                                                <div key={idx}>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-sm">{lang.name || `Language ${idx + 1}`}</span>
+                                                        <span className="text-sm text-zinc-500 dark:text-zinc-400">{percentage.toFixed(0)}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
+                                                        <div className={`${colors[idx % colors.length]} h-2 rounded-full`} style={{ width: `${percentage}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            )
+                                        })
+                                    ) : (
+                                        <p className="text-sm text-zinc-500">No language data available</p>
+                                    )}
+                                </div>
+
+                                {/* Mock language data - commented out for reference */}
+                                {/*
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm">JavaScript</span>
@@ -973,27 +1316,129 @@ export default function ProjectPage() {
                                         <div className="bg-red-500 h-2 rounded-full" style={{ width: "15%" }}></div>
                                     </div>
                                 </div>
+                                */}
                             </CardContent>
                         </Card>
                     </div>
                 </div>
             </main>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={deleteConfirmation.isOpen} onOpenChange={handleCloseDeleteDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete File/Folder</DialogTitle>
+                        <DialogDescription>
+                            This action cannot be undone. To confirm, please type the name of the file below.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div>
+                            <p className="text-sm font-medium mb-2">File name to delete:</p>
+                            <p className="text-sm text-zinc-500 bg-zinc-50 dark:bg-zinc-900 p-2 rounded">
+                                {deleteConfirmation.fileName}
+                            </p>
+                        </div>
+                        <div>
+                            <Label htmlFor="confirmDelete">Type the file name to confirm:</Label>
+                            <Input
+                                id="confirmDelete"
+                                value={deleteConfirmation.fileNameInput}
+                                onChange={(e) =>
+                                    setDeleteConfirmation({
+                                        ...deleteConfirmation,
+                                        fileNameInput: e.target.value,
+                                    })
+                                }
+                                placeholder={deleteConfirmation.fileName}
+                                className="mt-1"
+                                disabled={isDeleting}
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={handleCloseDeleteDialog}
+                            disabled={isDeleting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmDelete}
+                            disabled={
+                                isDeleting ||
+                                deleteConfirmation.fileNameInput.trim() !== deleteConfirmation.fileName
+                            }
+                        >
+                            {isDeleting ? "Deleting..." : "Delete"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
 
-function FileItem({ name, type, size, lastUpdated }) {
+function FileItem({ 
+    name, 
+    type, 
+    size, 
+    lastUpdated, 
+    depth = 0,
+    fileId,
+    isAdmin,
+    onDelete,
+    onFolderClick
+}: { 
+    name: string; 
+    type: string; 
+    size: string; 
+    lastUpdated: string; 
+    depth?: number;
+    fileId?: number;
+    isAdmin?: boolean;
+    onDelete?: (fileId: number, fileName: string) => void;
+    onFolderClick?: (fileId: number, folderName: string) => void;
+}) {
+    const [isHovering, setIsHovering] = useState(false);
+
     return (
-        <div className="flex items-center justify-between p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-            <div className="flex items-center gap-2">
-                <FileCode className="h-4 w-4 text-zinc-500" />
-                <span className="text-sm">{name}</span>
-            </div>
-            <div className="flex items-center gap-4">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">{size}</span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> {lastUpdated}
+        <div 
+            className={`flex items-center justify-between px-3 py-2.5 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/70 transition-colors border-b border-zinc-100 dark:border-zinc-800 ${type === "folder" ? "cursor-pointer font-medium" : ""}`}
+            style={{ paddingLeft: `${16 + depth * 16}px` }}
+            onMouseEnter={() => setIsHovering(true)}
+            onMouseLeave={() => setIsHovering(false)}
+            onClick={() => type === "folder" && fileId && onFolderClick?.(fileId, name)}
+        >
+            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                {type === "folder" ? (
+                    <Folder className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                ) : (
+                    <FileCode className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                )}
+                <span className={`text-sm truncate ${type === "folder" ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-700 dark:text-zinc-300"}`}>
+                    {name}
                 </span>
+            </div>
+            <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+                {size && size !== "0 B" && (
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400 w-12 text-right">{size}</span>
+                )}
+                <span className="text-xs text-zinc-500 dark:text-zinc-400 w-24 text-right">{lastUpdated}</span>
+                {isAdmin && isHovering && fileId && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete?.(fileId, name);
+                        }}
+                        className="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors flex-shrink-0"
+                        title="Delete file"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                )}
             </div>
         </div>
     )

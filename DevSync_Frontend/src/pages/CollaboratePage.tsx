@@ -1,5 +1,7 @@
 "use client"
-import { Link, useParams } from "react-router-dom"
+import { Link, useParams, useSearchParams, useLocation, useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import axios from "axios"
 import {
     Code,
     MessageSquare,
@@ -14,6 +16,8 @@ import {
     GitBranch,
     GitCommit,
     Save,
+    Folder,
+    ChevronUp,
 } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
@@ -23,14 +27,23 @@ import { Badge } from "../components/ui/badge"
 import { Separator } from "../components/ui/separator"
 import { ScrollArea } from "../components/ui/scroll-area"
 
-export default function CollaboratePage() {
-    const { id: projectId } = useParams();
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/projects/";
 
-    // Sample project data
+export default function CollaboratePage() {
+    const { username, slug: projectSlug } = useParams();
+    const [searchParams] = useSearchParams();
+    const location = useLocation();
+    const navigate = useNavigate();
+    const folderId = searchParams.get('folder');
+    const folderName = location.state?.folderName || 'Folder';
+    const [folderContents, setFolderContents] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // Sample project data - kept for reference
     const project = {
-        id: projectId,
+        slug: projectSlug,
         name: "E-commerce Platform",
-        owner: "johndoe",
+        owner: username,
         collaborators: [
             { name: "John Doe", username: "johndoe", status: "online", avatar: "/placeholder.svg?height=40&width=40" },
             { name: "Alex Kim", username: "alexkim", status: "online", avatar: "/placeholder.svg?height=40&width=40" },
@@ -107,6 +120,43 @@ export default ProductCard;`,
         ],
     }
 
+    // Fetch folder contents when folderId changes
+    useEffect(() => {
+        if (folderId) {
+            fetchFolderContents();
+        } else {
+            setLoading(false);
+        }
+    }, [folderId]);
+
+    const fetchFolderContents = async () => {
+        try {
+            const token = localStorage.getItem("access");
+            if (!token) {
+                console.error("No authentication token");
+                setLoading(false);
+                return;
+            }
+
+            const response = await axios.get(
+                `${BASE_URL}${projectSlug}/folder/${folderId}/`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (response.data && response.data.children) {
+                setFolderContents(response.data.children);
+            }
+        } catch (error) {
+            console.error("Failed to fetch folder contents:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
             <header className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10">
@@ -118,11 +168,11 @@ export default ProductCard;`,
                                 <span className="font-bold">DevSync</span>
                             </Link>
                             <span className="text-zinc-400">/</span>
-                            <Link to={`/user/${project.owner}`} className="text-sm hover:underline">
-                                {project.owner}
+                            <Link to={`/user/${username}`} className="text-sm hover:underline">
+                                {username}
                             </Link>
                             <span className="text-zinc-400">/</span>
-                            <Link to={`/project/${project.id}`} className="text-sm font-medium hover:underline">
+                            <Link to={`/${username}/project/${projectSlug}`} className="text-sm font-medium hover:underline">
                                 {project.name}
                             </Link>
                         </div>
@@ -156,7 +206,17 @@ export default ProductCard;`,
                 <div className="w-64 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col">
                     <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
                         <div className="flex items-center justify-between mb-2">
-                            <h3 className="font-medium">Files</h3>
+                            <div className="flex items-center gap-2">
+                                {folderId && (
+                                    <button 
+                                        onClick={() => navigate(`/${username}/project/${projectSlug}`)}
+                                        className="hover:opacity-70 transition-opacity cursor-pointer"
+                                    >
+                                        <ChevronUp className="h-4 w-4" />
+                                    </button>
+                                )}
+                                <h3 className="font-medium">{folderId ? `${folderName} - Files` : "Files"}</h3>
+                            </div>
                             <Button variant="ghost" size="icon" className="h-6 w-6">
                                 <Plus className="h-4 w-4" />
                             </Button>
@@ -165,7 +225,15 @@ export default ProductCard;`,
                     </div>
                     <ScrollArea className="flex-1">
                         <div className="p-2">
-                            <FileExplorer files={project.files} level={0} />
+                            {loading ? (
+                                <div className="p-4 text-center text-zinc-500">Loading...</div>
+                            ) : folderId && folderContents.length > 0 ? (
+                                <FileExplorer files={folderContents} level={0} />
+                            ) : folderId ? (
+                                <div className="p-4 text-center text-zinc-500">No files in this folder</div>
+                            ) : (
+                                <FileExplorer files={project.files || []} level={0} />
+                            )}
                         </div>
                     </ScrollArea>
                 </div>
@@ -342,22 +410,5 @@ function FileExplorer({ files, level }) {
                 </div>
             ))}
         </div>
-    )
-}
-
-function Folder({ className }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-        </svg>
     )
 }

@@ -397,5 +397,8 @@ venv/
 myenv/
 .venv/
 .env
-media/avatars/*
+
+# Backend media folder (uploaded files, avatars, projects)
+DevSync_Backend/media/
+
 .vscode/
