@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "../components/ui/button"
+import { Input } from "../components/ui/input"
 import {
     Code,
     GitBranch,
@@ -12,15 +13,17 @@ import {
     ArrowRight,
     Globe,
     Lock,
+    Search,
 } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useAuth } from "../components/contexts/auth-context"
 
 export default function LandingPage() {
     const { isAuthenticated, isLoading, user } = useAuth()
     const navigate = useNavigate()
+    const [headerSearch, setHeaderSearch] = useState("")
 
     // useEffect(() => {
     //     if (!isLoading && isAuthenticated && user) {
@@ -57,6 +60,16 @@ export default function LandingPage() {
         },
     }
 
+    const onHeaderSearch = () => {
+        const query = headerSearch.trim()
+        if (!query) {
+            navigate("/search")
+            return
+        }
+
+        navigate(`/search?q=${encodeURIComponent(query)}`)
+    }
+
     return (
         <div className="min-h-screen bg-zinc-950 text-zinc-100">
             {/* Header */}
@@ -72,6 +85,26 @@ export default function LandingPage() {
                             <Code className="h-5 w-5 text-emerald-400" />
                         </div>
                         <h1 className="text-xl font-semibold tracking-tight">DevSync</h1>
+                        <div className="hidden lg:flex items-center gap-2 ml-3">
+                            <Input
+                                value={headerSearch}
+                                onChange={(e) => setHeaderSearch(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        onHeaderSearch()
+                                    }
+                                }}
+                                placeholder="Search repos..."
+                                className="w-56 h-9 bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-500"
+                            />
+                            <Button
+                                onClick={onHeaderSearch}
+                                size="sm"
+                                className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                <Search className="h-4 w-4 mr-1" /> Search
+                            </Button>
+                        </div>
                     </div>
                     <nav className="hidden md:flex items-center gap-10">
                         <Link to="/features" className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">

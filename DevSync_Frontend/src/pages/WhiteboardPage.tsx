@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popove
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group"
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import { Input } from "../components/ui/input"
+import { getBrandHomePath } from "../lib/brand-link"
 
 export default function WhiteboardPage() {
     const { id: projectId } = useParams();
@@ -133,7 +134,7 @@ export default function WhiteboardPage() {
                 <div className="container mx-auto px-4 py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <Link to="/" className="flex items-center gap-2">
+                            <Link to={getBrandHomePath()} className="flex items-center gap-2">
                                 <Code className="h-6 w-6 text-emerald-500" />
                                 <span className="font-bold">DevSync</span>
                             </Link>

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Button } from "../components/ui/button"
@@ -25,10 +25,40 @@ import { useParams } from "react-router-dom"
 import { Link } from "react-router-dom"
 import { Code } from "lucide-react"
 import { DevToolsSidebar } from "../components/dev-tools-sidebar"
+import { followUser, unfollowUser, checkIsFollowing } from "../routes/profile"
 
 const UserProfile = () => {
-    //const { username } = useParams()
+    const { username } = useParams<{ username: string }>()
     const [isFollowing, setIsFollowing] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
+
+    // Check if current user is following this user on mount
+    useEffect(() => {
+        if (username) {
+            checkIsFollowing(username).then(setIsFollowing)
+        }
+    }, [username])
+
+    const handleFollowToggle = async () => {
+        if (!username) return
+
+        setIsLoading(true)
+        try {
+            if (isFollowing) {
+                const result = await unfollowUser(username)
+                if (result.success) {
+                    setIsFollowing(false)
+                }
+            } else {
+                const result = await followUser(username)
+                if (result.success) {
+                    setIsFollowing(true)
+                }
+            }
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
     // Mock user data
     const user = {
@@ -202,9 +232,10 @@ const UserProfile = () => {
                                                     ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
                                                     : "bg-emerald-500 hover:bg-emerald-600"
                                             }
-                                            onClick={() => setIsFollowing(!isFollowing)}
+                                            disabled={isLoading}
+                                            onClick={() => handleFollowToggle()}
                                         >
-                                            {isFollowing ? "Following" : "Follow"}
+                                            {isLoading ? "Loading..." : isFollowing ? "Following" : "Follow"}
                                         </Button>
                                         <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
                                             Message
@@ -249,7 +280,7 @@ const UserProfile = () => {
                                         <span className="text-zinc-300">
                                             <strong className="text-white">{user.followers}</strong> followers
                                         </span>
-                                        <span className="text-zinc-600">•</span>
+                                        <span className="text-zinc-600">ï¿½</span>
                                         <span className="text-zinc-300">
                                             <strong className="text-white">{user.following}</strong> following
                                         </span>

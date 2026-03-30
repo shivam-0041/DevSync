@@ -91,6 +91,81 @@ export async function fetchPublicProjects(username: string) {
     }
 }
 
+export async function fetchAllPublicProjects() {
+    try {
+        const response = await axios.get(`${BASE_URL}public/`, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Failed to fetch all public projects:", error);
+        throw error;
+    }
+}
+
+export type GithubPopularRepo = {
+    id: number
+    name: string
+    full_name: string
+    description: string | null
+    stargazers_count: number
+    forks_count: number
+    language: string | null
+    owner: {
+        login: string
+    }
+    html_url: string
+}
+
+export async function fetchGithubPopularRepos() {
+    try {
+        const response = await axios.get("https://api.github.com/search/repositories", {
+            params: {
+                q: "stars:>1",
+                sort: "stars",
+                order: "desc",
+                per_page: 100,
+            },
+            headers: {
+                Accept: "application/vnd.github+json",
+            },
+        })
+
+        return (response.data?.items || []) as GithubPopularRepo[]
+    } catch (error) {
+        console.error("Failed to fetch GitHub popular repositories:", error)
+        throw error
+    }
+}
+
+export async function searchGithubRepositories(query: string) {
+    const trimmed = query.trim()
+    if (!trimmed) {
+        return [] as GithubPopularRepo[]
+    }
+
+    try {
+        const response = await axios.get("https://api.github.com/search/repositories", {
+            params: {
+                q: trimmed,
+                sort: "stars",
+                order: "desc",
+                per_page: 30,
+            },
+            headers: {
+                Accept: "application/vnd.github+json",
+            },
+        })
+
+        return (response.data?.items || []) as GithubPopularRepo[]
+    } catch (error) {
+        console.error("Failed to search GitHub repositories:", error)
+        throw error
+    }
+}
+
 
 export async function fetchProjectData(projectId: string) {
 
@@ -321,6 +396,38 @@ export interface PendingInviteResponseItem {
     status: "pending" | "accepted" | "declined" | "expired";
     created_at: string;
     expires_at: string;
+}
+
+export interface DashboardTeammateResponseItem {
+    id: number;
+    username: string;
+    display_name: string;
+    role: "admin" | "maintainer" | "developer" | "guest";
+    avatar: string | null;
+    last_activity: string | null;
+    status: "online" | "away" | "offline";
+}
+
+export async function fetchDashboardTeammates() {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false, teammates: [] as DashboardTeammateResponseItem[] };
+        }
+
+        const response = await axios.get<{ teammates: DashboardTeammateResponseItem[] }>(`${BASE_URL}teammates/`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        return { success: true, teammates: response.data.teammates || [] };
+    } catch (error) {
+        console.error("Failed to fetch dashboard teammates:", error);
+        return { success: false, teammates: [] as DashboardTeammateResponseItem[] };
+    }
 }
 
 export async function fetchProjectMembers(slug: string) {
@@ -565,6 +672,51 @@ export async function downloadFiles(
             success: false,
             error: error instanceof Error ? error.message : "Download failed",
         };
+    }
+}
+
+export async function createProjectItem(
+    projectSlug: string,
+    payload: {
+        name: string
+        itemType: "file" | "folder"
+        parentId?: number | null
+        branch?: string
+        initialContent?: string
+    }
+) {
+    try {
+        const token = localStorage.getItem("access")
+
+        if (!token) {
+            console.error("No token found in localStorage")
+            return { success: false, error: "No authentication token found" }
+        }
+
+        const response = await axios.post(
+            `${BASE_URL}${projectSlug}/files/create/`,
+            {
+                name: payload.name,
+                item_type: payload.itemType,
+                parent_id: payload.parentId ?? null,
+                branch: payload.branch || "main",
+                initial_content: payload.initialContent ?? "",
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        )
+
+        return { success: true, data: response.data }
+    } catch (error: any) {
+        console.error("Failed to create project item:", error.response?.data || error.message)
+        return {
+            success: false,
+            error: error.response?.data?.error || "Failed to create item",
+        }
     }
 }
 

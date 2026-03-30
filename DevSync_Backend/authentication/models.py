@@ -34,6 +34,7 @@ class RegisteredUser(AbstractBaseUser):
     first_name = models.CharField(max_length=150)  # First name is required
     last_name = models.CharField(max_length=150)  # Last name is required
     created_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(blank=True, null=True)
     
     # Optional: if you want to use first_name and last_name for full_name or other purposes
     full_name = property(lambda self: f"{self.first_name} {self.last_name}")

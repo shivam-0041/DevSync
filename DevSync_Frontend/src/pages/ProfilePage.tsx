@@ -22,7 +22,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Badge } from "../components/ui/badge"
-import { fetchUserProfile } from '../routes/profile';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog"
+import { getBrandHomePath } from "../lib/brand-link"
+import { fetchUserProfile, fetchFollowers, fetchFollowing, type SocialConnection } from '../routes/profile';
 import { fetchProjects } from '../routes/projects';
 import { useState, useEffect } from 'react';
 
@@ -51,6 +58,11 @@ export default function ProfilePage() {
 
     const [user, setUser] = useState({});
     const [repositories, setRepositories] = useState([]);
+    const [isConnectionsOpen, setIsConnectionsOpen] = useState(false)
+    const [activeConnectionsTab, setActiveConnectionsTab] = useState<"followers" | "following">("followers")
+    const [followersList, setFollowersList] = useState<SocialConnection[]>([])
+    const [followingList, setFollowingList] = useState<SocialConnection[]>([])
+    const [isConnectionsLoading, setIsConnectionsLoading] = useState(false)
     // Fetch user profile data from the backend
     useEffect(() => {
         const fetchData = async () => {
@@ -120,6 +132,27 @@ export default function ProfilePage() {
 
         fetchData();
     }, []);
+
+    const openConnectionsDialog = async (tab: "followers" | "following") => {
+      if (!user?.username) {
+        return
+      }
+
+      setActiveConnectionsTab(tab)
+      setIsConnectionsOpen(true)
+      setIsConnectionsLoading(true)
+
+      try {
+        const [followersData, followingData] = await Promise.all([
+          fetchFollowers(user.username),
+          fetchFollowing(user.username),
+        ])
+        setFollowersList(followersData)
+        setFollowingList(followingData)
+      } finally {
+        setIsConnectionsLoading(false)
+      }
+    }
 
 
   // Sample user data
@@ -228,7 +261,7 @@ export default function ProfilePage() {
       <header className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
+            <Link to={getBrandHomePath()} className="flex items-center gap-2">
               <Code className="h-6 w-6 text-emerald-500" />
               <span className="font-bold">DevSync</span>
             </Link>
@@ -366,16 +399,24 @@ export default function ProfilePage() {
                     <span className="font-medium">{user.repositories}</span>
                     <span className="text-zinc-500 dark:text-zinc-400 text-sm">repositories</span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => openConnectionsDialog("followers")}
+                    className="flex items-center gap-1 hover:text-emerald-500 transition-colors"
+                  >
                     <Users className="h-5 w-5" />
                     <span className="font-medium">{user.followers}</span>
                     <span className="text-zinc-500 dark:text-zinc-400 text-sm">followers</span>
-                  </div>
-                  <div className="flex items-center gap-1">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openConnectionsDialog("following")}
+                    className="flex items-center gap-1 hover:text-emerald-500 transition-colors"
+                  >
                     <Users className="h-5 w-5" />
                     <span className="font-medium">{user.following}</span>
                     <span className="text-zinc-500 dark:text-zinc-400 text-sm">following</span>
-                  </div>
+                  </button>
                 </div>
                 <div>
                   <Button variant="outline" size="sm">
@@ -448,6 +489,75 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        <Dialog open={isConnectionsOpen} onOpenChange={setIsConnectionsOpen}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>{activeConnectionsTab === "followers" ? "Followers" : "Following"}</DialogTitle>
+            </DialogHeader>
+
+            <Tabs value={activeConnectionsTab} onValueChange={(value) => setActiveConnectionsTab(value as "followers" | "following") }>
+              <TabsList className="grid grid-cols-2 w-full">
+                <TabsTrigger value="followers">Followers ({followersList.length})</TabsTrigger>
+                <TabsTrigger value="following">Following ({followingList.length})</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="followers" className="mt-4">
+                <div className="max-h-96 overflow-y-auto space-y-3 pr-1">
+                  {isConnectionsLoading && <p className="text-sm text-zinc-500">Loading followers...</p>}
+                  {!isConnectionsLoading && followersList.length === 0 && (
+                    <p className="text-sm text-zinc-500">No followers yet.</p>
+                  )}
+                  {!isConnectionsLoading && followersList.map((person) => (
+                    <Link
+                      key={`follower-${person.id}`}
+                      to={`/p/${person.username}`}
+                      className="flex items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-800 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar>
+                          <AvatarImage src={person.avatar || "/def-avatar.svg"} alt={person.name} />
+                          <AvatarFallback>{person.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{person.name}</p>
+                          <p className="text-sm text-zinc-500 truncate">@{person.username}</p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="following" className="mt-4">
+                <div className="max-h-96 overflow-y-auto space-y-3 pr-1">
+                  {isConnectionsLoading && <p className="text-sm text-zinc-500">Loading following...</p>}
+                  {!isConnectionsLoading && followingList.length === 0 && (
+                    <p className="text-sm text-zinc-500">Not following anyone yet.</p>
+                  )}
+                  {!isConnectionsLoading && followingList.map((person) => (
+                    <Link
+                      key={`following-${person.id}`}
+                      to={`/p/${person.username}`}
+                      className="flex items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-800 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar>
+                          <AvatarImage src={person.avatar || "/def-avatar.svg"} alt={person.name} />
+                          <AvatarFallback>{person.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{person.name}</p>
+                          <p className="text-sm text-zinc-500 truncate">@{person.username}</p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   )

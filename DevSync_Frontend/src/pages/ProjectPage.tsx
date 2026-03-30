@@ -95,7 +95,6 @@ export default function ProjectPage() {
     const [loading, setLoading] = useState(true);
     const { id: projectId } = useParams();
     const navigate = useNavigate();
-    const [issues, setIssues] = useState<any[]>([])
     const loggedInUser = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user") || "{}") : {}
     const [currentUserRole, setCurrentUserRole] = useState<"admin" | "maintainer" | "developer" | "guest" | null>(null)
     const [open, setOpen] = useState(false);
@@ -383,7 +382,6 @@ export default function ProjectPage() {
             fetchProjectData(projectId)
             .then((data) => {
                 setProject(data);
-                setIssues(data.issues || []);
             })
             .catch((err) => {
                 console.error("Error fetching project data:", err);
@@ -398,19 +396,10 @@ export default function ProjectPage() {
         }
     }, [project]);
 
-    //Project Issues
-    useEffect(() => {
-    const fetchIssues = async () => {
-        try {
-            const res = await fetch(`/api/projects/${project.slug}/issues/`)
-            const data = await res.json()
-            setIssues(data)
-        } catch (err) {
-            console.error("Error fetching issues:", err)
-        }
-    }
-        if (project.slug) fetchIssues()
-    }, [project.slug])
+    const issues = useMemo(() => (Array.isArray(project.issues) ? project.issues : []), [project.issues])
+    const pullRequests = useMemo(() => (Array.isArray(project.pull_requests) ? project.pull_requests : []), [project.pull_requests])
+    const discussions = useMemo(() => (Array.isArray(project.discussions) ? project.discussions : []), [project.discussions])
+    const tasks = useMemo(() => (Array.isArray(project.tasks) ? project.tasks : []), [project.tasks])
 
     useEffect(() => {
         const loadRole = async () => {
@@ -1030,13 +1019,16 @@ export default function ProjectPage() {
                                         <Button  className="m-4 flex justify-center">New Issue</Button>
                                     </Link>
                                     <div className="space-y-4">
+                                        {issues.length === 0 && (
+                                            <p className="text-sm text-zinc-500">No issues found.</p>
+                                        )}
                                         {issues.map((issue) => (
                                             <IssueItem
                                             key={issue.id}
                                             title={issue.title}
                                             number={issue.id}
                                             status={issue.status}
-                                            author={issue.created_by_username}
+                                            author={issue.created_by_username || issue.created_by || "unknown"}
                                             createdAt={formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
                                             />
                                         ))}
@@ -1048,32 +1040,47 @@ export default function ProjectPage() {
                                         <Button  className="m-4 flex justify-center">New Pull Request</Button>
                                     </Link>
                                     <div className="space-y-4">
-                                        <PullRequestItem
-                                            title="Implement user authentication"
-                                            number={15}
-                                            status="open"
-                                            author="johndoe"
-                                            createdAt="1 day ago"
-                                            comments={3}
-                                        />
-                                        <PullRequestItem
-                                            title="Add product search functionality"
-                                            number={14}
-                                            status="open"
-                                            author="racheljohnson"
-                                            createdAt="3 days ago"
-                                            comments={2}
-                                        />
+                                        {pullRequests.length === 0 && (
+                                            <p className="text-sm text-zinc-500">No pull requests found.</p>
+                                        )}
+                                        {pullRequests.map((pr) => (
+                                            <PullRequestItem
+                                                key={pr.id}
+                                                title={pr.message || `Merge ${pr.from_branch} into ${pr.to_branch}`}
+                                                number={pr.id}
+                                                status={pr.status}
+                                                author={pr.created_by || "unknown"}
+                                                createdAt={pr.created_at ? formatDistanceToNow(new Date(pr.created_at), { addSuffix: true }) : "unknown"}
+                                                comments={0}
+                                            />
+                                        ))}
                                     </div>
                                 </TabsContent>
 
                                 <TabsContent value="discussions" className="p-4">
-                                    <div className="text-center py-10">
-                                        <h3 className="text-lg font-medium mb-2">No discussions yet</h3>
-                                        <p className="text-zinc-500 dark:text-zinc-400 mb-4">
-                                            Start a new discussion to ask questions or share ideas.
-                                        </p>
-                                        <Button>New Discussion</Button>
+                                    <div className="space-y-4">
+                                        {discussions.length === 0 && (
+                                            <div className="text-center py-10">
+                                                <h3 className="text-lg font-medium mb-2">No discussions yet</h3>
+                                                <p className="text-zinc-500 dark:text-zinc-400">Discussions will appear here when they are created.</p>
+                                            </div>
+                                        )}
+                                        {discussions.map((thread) => (
+                                            <div key={thread.id} className="border border-zinc-200 dark:border-zinc-800 rounded-md p-4">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <MessageSquare className="h-4 w-4 text-emerald-500" />
+                                                            <h3 className="font-medium">{thread.title}</h3>
+                                                            <Badge variant="outline">#{thread.id}</Badge>
+                                                        </div>
+                                                        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                                                            Started by @{thread.created_by || "unknown"} {thread.created_at ? formatDistanceToNow(new Date(thread.created_at), { addSuffix: true }) : ""}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </TabsContent>
 
@@ -1139,6 +1146,9 @@ export default function ProjectPage() {
                                             </div>
                                         </div>
                                     </div>
+                                    {tasks.length === 0 && (
+                                        <p className="text-sm text-zinc-500">No tasks found.</p>
+                                    )}
                                 </TabsContent>
 
                                 <TabsContent value="whiteboard" className="p-4">

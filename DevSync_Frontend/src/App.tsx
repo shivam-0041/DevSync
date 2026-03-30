@@ -22,6 +22,9 @@ const WhiteboardPage = lazy(() => import('./pages/WhiteboardPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
 const ExplorePage = lazy(() => import('./pages/ExplorePage'));
+const DashboardStarredPage = lazy(() => import('./pages/DashboardStarredPage'));
+const DashboardTeamsPage = lazy(() => import('./pages/DashboardTeamsPage'));
+const DashboardActivityPage = lazy(() => import('./pages/DashboardActivityPage'));
 const CollaboratePage = lazy(() => import('./pages/CollaboratePage'));
 const AccountSettings = lazy(() => import('./pages/AccountSettings'));
 const ProjectSettings = lazy(() => import('./pages/ProjectSettings'));
@@ -61,9 +64,9 @@ function App() {
 
             {/* New routes - dashboard sub-pages */}
             <Route path="/dashboard/explore" element={<ExplorePage />} />
-            <Route path="/dashboard/starred" element={<ExplorePage />} />
-            <Route path="/dashboard/teams" element={<ExplorePage />} />
-            <Route path="/dashboard/activity" element={<ExplorePage />} />
+            <Route path="/dashboard/starred" element={<DashboardStarredPage />} />
+            <Route path="/dashboard/teams" element={<DashboardTeamsPage />} />
+            <Route path="/dashboard/activity" element={<DashboardActivityPage />} />
 
             {/* New routes - auth aliases */}
             <Route path="/signin" element={<LoginPage />} />

@@ -10,7 +10,10 @@ from .serializers import (
     ProjectInviteSerializer,
     ProjectMemberListSerializer,
     PendingInviteListSerializer,
+    DashboardTeammateSerializer,
 )
+
+from core.models import Profile
 from .models import Project, Whiteboard, Issue, ProjectTask, ProjectInvite, Branch, CodeFile, UserProjectRole
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
@@ -20,6 +23,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 from uuid import uuid4
+from django.core.files.base import ContentFile
 
 User = get_user_model()
 class CreateProjectView(generics.CreateAPIView):
@@ -51,6 +55,14 @@ class PublicProjectListView(generics.ListAPIView):
             except User.DoesNotExist:
                 return Project.objects.none()
         return Project.objects.none()
+
+
+class AllPublicProjectListView(generics.ListAPIView):
+    serializer_class = ProjectListSerializer
+    permission_classes = []  # No authentication required for public projects
+
+    def get_queryset(self):
+        return Project.objects.filter(visibility='public').order_by('-updated_at')
 
 class ProjectDetailView(generics.RetrieveAPIView):
     serializer_class = ProjectDetailSerializer
@@ -135,6 +147,109 @@ class MyAssignedTasksView(ListAPIView):
             .select_related("assign_to", "project")
             .order_by("deadline")
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_dashboard_teammates(request):
+    """
+    Return distinct teammates from all projects where current user is a member.
+    Ordered by most recent activity.
+    """
+    membership_project_ids = UserProjectRole.objects.filter(user=request.user).values_list('project_id', flat=True)
+    owned_project_ids = Project.objects.filter(created_by=request.user).values_list('id', flat=True)
+    project_ids = set(membership_project_ids) | set(owned_project_ids)
+
+    if not project_ids:
+        return Response({'teammates': []}, status=status.HTTP_200_OK)
+
+    teammate_roles = (
+        UserProjectRole.objects
+        .filter(project_id__in=project_ids)
+        .exclude(user_id=request.user.id)
+        .exclude(user__username__iexact=request.user.username)
+        .select_related('user', 'user__profile')
+        .order_by('user_id')
+    )
+
+    role_priority = {
+        'admin': 4,
+        'maintainer': 3,
+        'developer': 2,
+        'guest': 1,
+    }
+
+    teammates_by_user = {}
+    current_user_id = request.user.id
+    for membership in teammate_roles:
+        member_user = membership.user
+
+        if member_user.id == current_user_id:
+            continue
+
+        first_name = (member_user.first_name or '').strip()
+        last_name = (member_user.last_name or '').strip()
+        display_name = f"{first_name} {last_name}".strip() or member_user.username
+
+        avatar_url = None
+        profile = getattr(member_user, 'profile', None)
+        avatar = getattr(profile, 'avatar', None)
+        if avatar:
+            try:
+                avatar_name = getattr(avatar, 'name', '') or ''
+                if avatar_name and 'def-avatar.svg' not in avatar_name and avatar.storage.exists(avatar_name):
+                    avatar_url = request.build_absolute_uri(avatar.url)
+                else:
+                    avatar_url = None
+            except Exception:
+                avatar_url = None
+
+        last_activity = getattr(member_user, 'last_activity', None) or getattr(member_user, 'created_at', None)
+        if last_activity:
+            minutes_since_active = (now() - last_activity).total_seconds() / 60
+            if minutes_since_active < 5:
+                status_value = 'online'
+            elif minutes_since_active < 60:
+                status_value = 'away'
+            else:
+                status_value = 'offline'
+        else:
+            status_value = 'offline'
+
+        existing = teammates_by_user.get(member_user.id)
+        if existing:
+            current_priority = role_priority.get(membership.role, 0)
+            existing_priority = role_priority.get(existing['role'], 0)
+            if current_priority > existing_priority:
+                existing['role'] = membership.role
+
+            if last_activity and (not existing['last_activity'] or last_activity > existing['last_activity']):
+                existing['last_activity'] = last_activity
+                existing['status'] = status_value
+            continue
+
+        teammates_by_user[member_user.id] = {
+            'id': member_user.id,
+            'username': member_user.username,
+            'display_name': display_name,
+            'role': membership.role,
+            'avatar': avatar_url,
+            'last_activity': last_activity,
+            'status': status_value,
+        }
+
+    teammates = list(teammates_by_user.values())
+    teammates.sort(
+        key=lambda item: (
+            item['last_activity'] is None,
+            -(item['last_activity'].timestamp()) if item['last_activity'] else 0,
+            -role_priority.get(item['role'], 0),
+            item['username'].lower(),
+        )
+    )
+
+    serializer = DashboardTeammateSerializer(teammates, many=True)
+    return Response({'teammates': serializer.data}, status=status.HTTP_200_OK)
 
 
 # ============================
@@ -713,3 +828,89 @@ def get_folder_contents(request, slug, folder_id):
         'item_type': folder.item_type,
         'children': serialize_file_tree(children)
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_project_item(request, slug):
+    """
+    Create a file or folder inside a project.
+
+    Request body:
+    - name: str (required)
+    - item_type: 'file' | 'folder' (required)
+    - parent_id: int | null (optional)
+    - branch: str (optional, defaults to main)
+    - initial_content: str (optional, for file)
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+    except Project.DoesNotExist:
+        return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.user not in project.members.all() and request.user != project.created_by:
+        return Response({'error': 'You do not have permission to modify this project.'}, status=status.HTTP_403_FORBIDDEN)
+
+    name = str(request.data.get('name', '')).strip()
+    item_type = str(request.data.get('item_type', '')).strip().lower()
+    parent_id = request.data.get('parent_id')
+    branch_name = str(request.data.get('branch', 'main')).strip() or 'main'
+    initial_content = request.data.get('initial_content', '')
+
+    if not name:
+        return Response({'error': 'Name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if item_type not in [CodeFile.FILE, CodeFile.FOLDER]:
+        return Response({'error': 'item_type must be file or folder.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    branch, _ = Branch.objects.get_or_create(
+        project=project,
+        name=branch_name,
+        defaults={'created_by': request.user}
+    )
+
+    parent = None
+    if parent_id not in [None, '', 'null']:
+        try:
+            parent = CodeFile.objects.get(id=parent_id, project=project, item_type=CodeFile.FOLDER)
+        except CodeFile.DoesNotExist:
+            return Response({'error': 'Parent folder not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    already_exists = CodeFile.objects.filter(
+        project=project,
+        branch=branch,
+        parent=parent,
+        name=name,
+        item_type=item_type,
+    ).exists()
+    if already_exists:
+        return Response({'error': f'{item_type.title()} with the same name already exists in this location.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    item = CodeFile(
+        project=project,
+        branch=branch,
+        parent=parent,
+        name=name,
+        item_type=item_type,
+        uploaded_by=request.user,
+    )
+
+    if item_type == CodeFile.FILE:
+        content_value = '' if initial_content is None else str(initial_content)
+        item.file.save(name, ContentFile(content_value.encode('utf-8')), save=False)
+
+    item.save()
+
+    return Response(
+        {
+            'message': f'{item_type.title()} created successfully.',
+            'item': {
+                'id': item.id,
+                'name': item.name,
+                'item_type': item.item_type,
+                'parent_id': item.parent_id,
+                'branch': item.branch.name if item.branch else None,
+            }
+        },
+        status=status.HTTP_201_CREATED,
+    )

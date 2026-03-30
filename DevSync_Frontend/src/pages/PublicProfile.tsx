@@ -10,6 +10,7 @@ import { Badge } from "../components/ui/badge"
 import { Separator } from "../components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog"
 import {
     MapPin,
     LinkIcon,
@@ -30,7 +31,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "../components/contexts/auth-context"
 import { Activity } from "lucide-react" // Import Activity icon
-import { fetchPublicProfile } from '../routes/profile';
+import { fetchPublicProfile, followUser, unfollowUser, checkIsFollowing, fetchFollowers, fetchFollowing, type SocialConnection } from '../routes/profile';
 import { fetchPublicProjects } from '../routes/projects';
 
 interface UserProfile {
@@ -223,6 +224,12 @@ export default function ProfilePage() {
     >([])
     const [loading, setLoading] = useState(true)
     const [isFollowing, setIsFollowing] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
+    const [isConnectionsOpen, setIsConnectionsOpen] = useState(false)
+    const [activeConnectionsTab, setActiveConnectionsTab] = useState<"followers" | "following">("followers")
+    const [followersList, setFollowersList] = useState<SocialConnection[]>([])
+    const [followingList, setFollowingList] = useState<SocialConnection[]>([])
+    const [isConnectionsLoading, setIsConnectionsLoading] = useState(false)
 
     const navigate = useNavigate()
 
@@ -259,9 +266,59 @@ export default function ProfilePage() {
         }
     }, [username, navigate])
 
-    const handleFollowToggle = () => {
-        setIsFollowing(!isFollowing)
-        // In a real app, this would make an API call
+    useEffect(() => {
+        const checkFollowingStatus = async () => {
+            if (!username || isOwnProfile || !currentUser) return
+            try {
+                const result = await checkIsFollowing(username)
+                setIsFollowing(result)
+            } catch (error) {
+                console.error('Error checking follow status:', error)
+            }
+        }
+
+        checkFollowingStatus()
+    }, [username, isOwnProfile, currentUser])
+
+    const handleFollowToggle = async () => {
+        if (!username || isLoading) return
+        setIsLoading(true)
+        try {
+            if (isFollowing) {
+                const result = await unfollowUser(username)
+                if (result.success) {
+                    setIsFollowing(false)
+                }
+            } else {
+                const result = await followUser(username)
+                if (result.success) {
+                    setIsFollowing(true)
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling follow status:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const openConnectionsDialog = async (tab: "followers" | "following") => {
+        if (!username) return
+
+        setActiveConnectionsTab(tab)
+        setIsConnectionsOpen(true)
+        setIsConnectionsLoading(true)
+
+        try {
+            const [followersData, followingData] = await Promise.all([
+                fetchFollowers(username),
+                fetchFollowing(username),
+            ])
+            setFollowersList(followersData)
+            setFollowingList(followingData)
+        } finally {
+            setIsConnectionsLoading(false)
+        }
     }
 
     if (loading) {
@@ -327,22 +384,23 @@ export default function ProfilePage() {
                                 ) : (
                                     <>
                                         <Button
-                                            onClick={handleFollowToggle}
-                                            variant={isFollowing ? "outline" : "default"}
-                                            className={isFollowing ? "border-gray-600" : "bg-emerald-500 text-black hover:bg-emerald-600"}
-                                        >
-                                            {isFollowing ? (
-                                                <>
-                                                    <UserMinus className="h-4 w-4 mr-2" />
-                                                    Unfollow
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <UserPlus className="h-4 w-4 mr-2" />
-                                                    Follow
-                                                </>
-                                            )}
-                                        </Button>
+                                                onClick={handleFollowToggle}
+                                                disabled={isLoading}
+                                                variant={isFollowing ? "outline" : "default"}
+                                                className={isFollowing ? "border-gray-600" : "bg-emerald-500 text-black hover:bg-emerald-600"}
+                                            >
+                                                {isFollowing ? (
+                                                    <>
+                                                        <UserMinus className="h-4 w-4 mr-2" />
+                                                        {isLoading ? "Loading..." : "Unfollow"}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <UserPlus className="h-4 w-4 mr-2" />
+                                                        {isLoading ? "Loading..." : "Follow"}
+                                                    </>
+                                                )}
+                                            </Button>
                                         <Button variant="outline" className="border-gray-600">
                                             <Mail className="h-4 w-4" />
                                         </Button>
@@ -386,14 +444,22 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="flex gap-6 text-sm">
-                            <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={() => openConnectionsDialog("followers")}
+                                className="flex items-center gap-1 hover:text-emerald-400 transition-colors"
+                            >
                                 <span className="font-semibold">{profile.followers.toLocaleString()}</span>
                                 <span className="text-gray-400">followers</span>
-                            </div>
-                            <div className="flex items-center gap-1">
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => openConnectionsDialog("following")}
+                                className="flex items-center gap-1 hover:text-emerald-400 transition-colors"
+                            >
                                 <span className="font-semibold">{profile.following.toLocaleString()}</span>
                                 <span className="text-gray-400">following</span>
-                            </div>
+                            </button>
                         </div>
 
                         {profile.socialLinks && (
@@ -534,6 +600,71 @@ export default function ProfilePage() {
                         </div>
                     </TabsContent>
                 </Tabs>
+
+                <Dialog open={isConnectionsOpen} onOpenChange={setIsConnectionsOpen}>
+                    <DialogContent className="sm:max-w-xl bg-gray-950 border-gray-800">
+                        <DialogHeader>
+                            <DialogTitle>{activeConnectionsTab === "followers" ? "Followers" : "Following"}</DialogTitle>
+                        </DialogHeader>
+
+                        <Tabs value={activeConnectionsTab} onValueChange={(value) => setActiveConnectionsTab(value as "followers" | "following")}>
+                            <TabsList className="grid grid-cols-2 w-full bg-gray-900">
+                                <TabsTrigger value="followers">Followers ({followersList.length})</TabsTrigger>
+                                <TabsTrigger value="following">Following ({followingList.length})</TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="followers" className="mt-4">
+                                <div className="max-h-96 overflow-y-auto space-y-3 pr-1">
+                                    {isConnectionsLoading && <p className="text-sm text-gray-400">Loading followers...</p>}
+                                    {!isConnectionsLoading && followersList.length === 0 && (
+                                        <p className="text-sm text-gray-400">No followers yet.</p>
+                                    )}
+                                    {!isConnectionsLoading && followersList.map((person) => (
+                                        <Link
+                                            key={`follower-${person.id}`}
+                                            to={`/p/${person.username}`}
+                                            className="flex items-center gap-3 rounded-md border border-gray-800 p-3 hover:bg-gray-900"
+                                        >
+                                            <Avatar>
+                                                <AvatarImage src={person.avatar || "/def-avatar.svg"} alt={person.name} />
+                                                <AvatarFallback>{person.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0">
+                                                <p className="font-medium truncate">{person.name}</p>
+                                                <p className="text-sm text-gray-400 truncate">@{person.username}</p>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="following" className="mt-4">
+                                <div className="max-h-96 overflow-y-auto space-y-3 pr-1">
+                                    {isConnectionsLoading && <p className="text-sm text-gray-400">Loading following...</p>}
+                                    {!isConnectionsLoading && followingList.length === 0 && (
+                                        <p className="text-sm text-gray-400">Not following anyone yet.</p>
+                                    )}
+                                    {!isConnectionsLoading && followingList.map((person) => (
+                                        <Link
+                                            key={`following-${person.id}`}
+                                            to={`/p/${person.username}`}
+                                            className="flex items-center gap-3 rounded-md border border-gray-800 p-3 hover:bg-gray-900"
+                                        >
+                                            <Avatar>
+                                                <AvatarImage src={person.avatar || "/def-avatar.svg"} alt={person.name} />
+                                                <AvatarFallback>{person.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0">
+                                                <p className="font-medium truncate">{person.name}</p>
+                                                <p className="text-sm text-gray-400 truncate">@{person.username}</p>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     )

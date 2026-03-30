@@ -4,6 +4,8 @@ from . import views
 urlpatterns = [
     path("create/", views.CreateProjectView.as_view(), name="create-project"),
     path("list/", views.ProjectListView.as_view(), name="project-list"),
+    path("teammates/", views.get_dashboard_teammates, name="dashboard-teammates"),
+    path("public/", views.AllPublicProjectListView.as_view(), name="all-public-project-list"),
     path("public/<str:username>/", views.PublicProjectListView.as_view(), name="public-project-list"),
     path("tasks/my/", views.MyAssignedTasksView.as_view(), name="my-assigned-tasks"),
     path("<slug:slug>/", views.ProjectDetailView.as_view(), name="project-detail"),
@@ -16,6 +18,7 @@ urlpatterns = [
     
     # File upload endpoint
     path("<slug:slug>/files/upload/", views.upload_files, name="upload-files"),
+    path("<slug:slug>/files/create/", views.create_project_item, name="create-project-item"),
     path("<slug:slug>/files/<int:file_id>/delete/", views.delete_file, name="delete-file"),
     path("<slug:slug>/files/download/", views.download_files, name="download-files"),
     path("<slug:slug>/folder/<int:folder_id>/", views.get_folder_contents, name="get-folder-contents"),

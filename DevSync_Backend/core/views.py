@@ -89,3 +89,183 @@ class ChangePasswordView(APIView):
             user.save()
             return Response({"success": "Password updated successfully"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def follow_user(request, username):
+    """Follow a user"""
+    from .models import Follow
+    
+    try:
+        target_user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if target_user.id == request.user.id:
+        return Response({'error': 'You cannot follow yourself'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Create the follow relationship
+    follow_obj, created = Follow.objects.get_or_create(
+        follower=request.user,
+        following=target_user
+    )
+    
+    if not created:
+        return Response({'error': 'You are already following this user'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Update follower/following counts
+    target_user.profile.followers += 1
+    target_user.profile.save()
+    
+    request.user.profile.following += 1
+    request.user.profile.save()
+    
+    return Response({
+        'is_following': True,
+        'followers_count': target_user.profile.followers,
+        'message': f'You are now following {username}'
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def unfollow_user(request, username):
+    """Unfollow a user"""
+    from .models import Follow
+    
+    try:
+        target_user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    try:
+        follow_obj = Follow.objects.get(follower=request.user, following=target_user)
+    except Follow.DoesNotExist:
+        return Response({'error': 'You are not following this user'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    follow_obj.delete()
+    
+    # Update follower/following counts
+    target_user.profile.followers = max(0, target_user.profile.followers - 1)
+    target_user.profile.save()
+    
+    request.user.profile.following = max(0, request.user.profile.following - 1)
+    request.user.profile.save()
+    
+    return Response({
+        'is_following': False,
+        'followers_count': target_user.profile.followers,
+        'message': f'You have unfollowed {username}'
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def is_following(request, username):
+    """Check if current user is following the target user"""
+    from .models import Follow
+    
+    if not request.user.is_authenticated:
+        return Response({'is_following': False}, status=status.HTTP_200_OK)
+    
+    try:
+        target_user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    is_following = Follow.objects.filter(
+        follower=request.user,
+        following=target_user
+    ).exists()
+    
+    return Response({'is_following': is_following}, status=status.HTTP_200_OK)
+
+
+def _serialize_social_user(request, user, is_following=False):
+    profile = getattr(user, 'profile', None)
+    avatar_url = "/def-avatar.svg"
+
+    if profile and profile.avatar:
+        try:
+            avatar_url = request.build_absolute_uri(profile.avatar.url)
+        except Exception:
+            avatar_url = "/def-avatar.svg"
+
+    name = f"{user.first_name} {user.last_name}".strip() or user.username
+
+    return {
+        'id': user.id,
+        'username': user.username,
+        'name': name,
+        'avatar': avatar_url,
+        'bio': profile.bio if profile else "",
+        'is_following': is_following,
+    }
+
+
+@api_view(['GET'])
+def followers_list(request, username):
+    from .models import Follow
+
+    try:
+        target_user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    followers = User.objects.filter(
+        following_relationships__following=target_user
+    ).select_related('profile').distinct().order_by('username')
+
+    following_usernames = set()
+    if request.user.is_authenticated:
+        following_usernames = set(
+            Follow.objects.filter(
+                follower=request.user,
+                following__in=followers
+            ).values_list('following__username', flat=True)
+        )
+
+    data = [
+        _serialize_social_user(
+            request,
+            follower,
+            is_following=(follower.username in following_usernames),
+        )
+        for follower in followers
+    ]
+
+    return Response({'count': len(data), 'results': data}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def following_list(request, username):
+    from .models import Follow
+
+    try:
+        target_user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    following = User.objects.filter(
+        follower_relationships__follower=target_user
+    ).select_related('profile').distinct().order_by('username')
+
+    following_usernames = set()
+    if request.user.is_authenticated:
+        following_usernames = set(
+            Follow.objects.filter(
+                follower=request.user,
+                following__in=following
+            ).values_list('following__username', flat=True)
+        )
+
+    data = [
+        _serialize_social_user(
+            request,
+            followed_user,
+            is_following=(followed_user.username in following_usernames),
+        )
+        for followed_user in following
+    ]
+
+    return Response({'count': len(data), 'results': data}, status=status.HTTP_200_OK)

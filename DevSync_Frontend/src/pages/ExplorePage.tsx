@@ -250,15 +250,15 @@
 //                                <CardContent className="space-y-3">
 //                                    <div className="bg-zinc-800 p-3 rounded-md hover:bg-zinc-700 cursor-pointer">
 //                                        <p className="text-zinc-300 font-medium">Frontend Essentials</p>
-//                                        <p className="text-xs text-zinc-500">12 projects • Updated 2 days ago</p>
+//                                        <p className="text-xs text-zinc-500">12 projects ï¿½ Updated 2 days ago</p>
 //                                    </div>
 //                                    <div className="bg-zinc-800 p-3 rounded-md hover:bg-zinc-700 cursor-pointer">
 //                                        <p className="text-zinc-300 font-medium">AI & Machine Learning</p>
-//                                        <p className="text-xs text-zinc-500">8 projects • Updated 1 week ago</p>
+//                                        <p className="text-xs text-zinc-500">8 projects ï¿½ Updated 1 week ago</p>
 //                                    </div>
 //                                    <div className="bg-zinc-800 p-3 rounded-md hover:bg-zinc-700 cursor-pointer">
 //                                        <p className="text-zinc-300 font-medium">DevOps Tools</p>
-//                                        <p className="text-xs text-zinc-500">15 projects • Updated 3 days ago</p>
+//                                        <p className="text-xs text-zinc-500">15 projects ï¿½ Updated 3 days ago</p>
 //                                    </div>
 //                                    <Button variant="ghost" className="w-full text-emerald-400 hover:text-emerald-300 hover:bg-zinc-800">
 //                                        View All Collections
@@ -827,155 +827,194 @@
 
 "use client"
 
-import { useState } from "react"
-import { Search, Filter, Zap, Star, GitBranch, Users } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { ExternalLink, Filter, GitBranch, Search, Star, Zap } from "lucide-react"
 import { cn } from "../lib/utils"
+import {
+    fetchAllPublicProjects,
+    fetchGithubPopularRepos,
+    type GithubPopularRepo,
+} from "../routes/projects"
 
-const trendingProjects = [
-    {
-        id: 1,
-        name: "React UI Library",
-        description: "A comprehensive UI component library for React applications",
-        stars: 1245,
-        forks: 234,
-        language: "TypeScript",
-        owner: "techteam",
-        contributors: 18,
-        tags: ["ui", "components", "react"],
-    },
-    {
-        id: 2,
-        name: "Data Visualization Framework",
-        description: "Powerful data visualization tools for web applications",
-        stars: 876,
-        forks: 156,
-        language: "JavaScript",
-        owner: "datavis",
-        contributors: 12,
-        tags: ["data", "visualization", "charts"],
-    },
-    {
-        id: 3,
-        name: "AI Code Assistant",
-        description: "AI-powered code completion and suggestions",
-        stars: 2345,
-        forks: 321,
-        language: "Python",
-        owner: "aidev",
-        contributors: 24,
-        tags: ["ai", "machine-learning", "code-assistant"],
-    },
-    {
-        id: 4,
-        name: "Serverless Framework",
-        description: "Build serverless applications with ease",
-        stars: 1678,
-        forks: 289,
-        language: "TypeScript",
-        owner: "cloudteam",
-        contributors: 32,
-        tags: ["serverless", "cloud", "infrastructure"],
-    },
-    {
-        id: 5,
-        name: "Mobile App Template",
-        description: "Production-ready template for React Native applications",
-        stars: 943,
-        forks: 176,
-        language: "JavaScript",
-        owner: "mobiledev",
-        contributors: 15,
-        tags: ["mobile", "react-native", "template"],
-    },
-    {
-        id: 6,
-        name: "GraphQL Engine",
-        description: "High-performance GraphQL server with built-in authorization",
-        stars: 3210,
-        forks: 412,
-        language: "Go",
-        owner: "graphql",
-        contributors: 47,
-        tags: ["graphql", "api", "database"],
-    },
-]
+type DevSyncPublicProject = {
+    id: number
+    name: string
+    description: string
+    language?: string
+    visibility: string
+    created_by: string
+    slug?: string
+    updated_at?: string
+}
 
-const categories = [
-    { name: "Web Development", count: 1245 },
-    { name: "Machine Learning", count: 876 },
-    { name: "Mobile Development", count: 654 },
-    { name: "DevOps", count: 432 },
-    { name: "Data Science", count: 321 },
-    { name: "Game Development", count: 234 },
-    { name: "Blockchain", count: 123 },
-    { name: "IoT", count: 98 },
-]
+function formatRelativeDate(value?: string) {
+    if (!value) {
+        return "Recently"
+    }
 
-const languages = [
-    { name: "JavaScript", count: 2345 },
-    { name: "Python", count: 1876 },
-    { name: "TypeScript", count: 1543 },
-    { name: "Go", count: 876 },
-    { name: "Rust", count: 654 },
-    { name: "Java", count: 543 },
-    { name: "C#", count: 432 },
-    { name: "PHP", count: 321 },
-]
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) {
+        return "Recently"
+    }
 
-const ProjectCard = ({ project }: { project: any }) => {
+    const diffMinutes = Math.floor((Date.now() - parsed.getTime()) / 60000)
+    if (diffMinutes < 1) {
+        return "Just now"
+    }
+    if (diffMinutes < 60) {
+        return `${diffMinutes} min ago`
+    }
+
+    const diffHours = Math.floor(diffMinutes / 60)
+    if (diffHours < 24) {
+        return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`
+    }
+
+    const diffDays = Math.floor(diffHours / 24)
+    return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`
+}
+
+const DevSyncProjectCard = ({ project }: { project: DevSyncPublicProject }) => {
     return (
-        <div className="bg-gray-800 rounded-lg p-5 hover:bg-gray-750 transition-all border border-gray-700 hover:border-emerald-500/50">
-            <div className="flex justify-between items-start">
+        <div className="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:border-emerald-500/50 transition-all">
+            <div className="flex justify-between items-start gap-3">
                 <div>
                     <h3 className="text-lg font-semibold text-white">{project.name}</h3>
-                    <p className="text-gray-400 text-sm mt-1">{project.owner}</p>
+                    <p className="text-gray-400 text-sm mt-1">by {project.created_by}</p>
                 </div>
-                <div className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded text-xs font-medium">
-                    {project.language}
-                </div>
+                <span className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded text-xs font-medium">
+                    {project.visibility}
+                </span>
             </div>
-            <p className="mt-3 text-gray-300 text-sm">{project.description}</p>
-            <div className="flex gap-2 mt-4">
-                {project.tags.map((tag: string) => (
-                    <span key={tag} className="bg-gray-700 text-gray-300 px-2 py-1 rounded-full text-xs">
-                        {tag}
-                    </span>
-                ))}
-            </div>
-            <div className="flex justify-between mt-4 text-sm text-gray-400">
-                <div className="flex items-center gap-1">
-                    <Star size={14} />
-                    <span>{project.stars}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                    <GitBranch size={14} />
-                    <span>{project.forks}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                    <Users size={14} />
-                    <span>{project.contributors}</span>
-                </div>
+
+            <p className="mt-3 text-gray-300 text-sm line-clamp-3">{project.description || "No description provided."}</p>
+
+            <div className="mt-4 flex items-center justify-between text-sm text-gray-400">
+                <span>{project.language || "General"}</span>
+                <span>Updated {formatRelativeDate(project.updated_at)}</span>
             </div>
         </div>
     )
 }
 
+const GithubProjectCard = ({ repo }: { repo: GithubPopularRepo }) => {
+    return (
+        <a
+            href={repo.html_url}
+            target="_blank"
+            rel="noreferrer"
+            className="block bg-gray-800 rounded-lg p-5 border border-gray-700 hover:border-emerald-500/50 transition-all"
+        >
+            <div className="flex justify-between items-start gap-3">
+                <div>
+                    <h3 className="text-lg font-semibold text-white">{repo.name}</h3>
+                    <p className="text-gray-400 text-sm mt-1">{repo.owner.login}</p>
+                </div>
+                <span className="inline-flex items-center gap-1 text-xs text-emerald-300">
+                    View <ExternalLink size={13} />
+                </span>
+            </div>
+
+            <p className="mt-3 text-gray-300 text-sm line-clamp-3">{repo.description || "No description provided."}</p>
+
+            <div className="mt-4 flex items-center justify-between text-sm text-gray-400">
+                <span className="inline-flex items-center gap-1">
+                    <Star size={14} /> {repo.stargazers_count.toLocaleString()}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                    <GitBranch size={14} /> {repo.forks_count.toLocaleString()}
+                </span>
+                <span>{repo.language || "Mixed"}</span>
+            </div>
+        </a>
+    )
+}
+
 export default function ExplorePage() {
-    const [activeTab, setActiveTab] = useState("trending")
+    const [activeTab, setActiveTab] = useState<"devsync" | "github">("devsync")
+    const [query, setQuery] = useState("")
+    const [devsyncPublicProjects, setDevsyncPublicProjects] = useState<DevSyncPublicProject[]>([])
+    const [githubPopularProjects, setGithubPopularProjects] = useState<GithubPopularRepo[]>([])
+    const [isLoadingDevsync, setIsLoadingDevsync] = useState(true)
+    const [isLoadingGithub, setIsLoadingGithub] = useState(true)
+    const [devsyncError, setDevsyncError] = useState<string | null>(null)
+    const [githubError, setGithubError] = useState<string | null>(null)
+
+    useEffect(() => {
+        setIsLoadingDevsync(true)
+        fetchAllPublicProjects()
+            .then((data) => {
+                setDevsyncPublicProjects(Array.isArray(data) ? data : [])
+                setDevsyncError(null)
+            })
+            .catch(() => {
+                setDevsyncPublicProjects([])
+                setDevsyncError("Could not load DevSync public repositories.")
+            })
+            .finally(() => setIsLoadingDevsync(false))
+    }, [])
+
+    useEffect(() => {
+        setIsLoadingGithub(true)
+        fetchGithubPopularRepos()
+            .then((data) => {
+                setGithubPopularProjects(data)
+                setGithubError(null)
+            })
+            .catch(() => {
+                setGithubPopularProjects([])
+                setGithubError("Could not load GitHub popular repositories right now.")
+            })
+            .finally(() => setIsLoadingGithub(false))
+    }, [])
+
+    const normalizedQuery = query.trim().toLowerCase()
+
+    const filteredDevsyncProjects = useMemo(() => {
+        if (!normalizedQuery) {
+            return devsyncPublicProjects
+        }
+
+        return devsyncPublicProjects.filter((project) => {
+            const haystack = [project.name, project.description, project.created_by, project.language]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase()
+
+            return haystack.includes(normalizedQuery)
+        })
+    }, [devsyncPublicProjects, normalizedQuery])
+
+    const filteredGithubProjects = useMemo(() => {
+        if (!normalizedQuery) {
+            return githubPopularProjects
+        }
+
+        return githubPopularProjects.filter((repo) => {
+            const haystack = [repo.name, repo.full_name, repo.description, repo.language, repo.owner.login]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase()
+
+            return haystack.includes(normalizedQuery)
+        })
+    }, [githubPopularProjects, normalizedQuery])
 
     return (
         <div className="min-h-screen bg-gray-900 text-white p-6">
             <div className="max-w-7xl mx-auto">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-white">Explore</h1>
-                        <p className="text-gray-400 mt-1">Discover interesting projects and developers</p>
+                        <h1 className="text-3xl font-bold text-white">Explore Repositories</h1>
+                        <p className="text-gray-400 mt-1">Browse all public repos on DevSync and discover popular GitHub projects.</p>
                     </div>
                     <div className="relative w-full md:w-96">
                         <input
                             type="text"
-                            placeholder="Search projects..."
+                            placeholder="Search by name, owner, language..."
                             className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
                         />
                         <Search className="absolute left-3 top-2.5 text-gray-500" size={18} />
                     </div>
@@ -983,82 +1022,70 @@ export default function ExplorePage() {
 
                 <div className="flex border-b border-gray-800 mb-6">
                     <button
-                        onClick={() => setActiveTab("trending")}
+                        onClick={() => setActiveTab("devsync")}
                         className={cn(
                             "py-3 px-4 font-medium text-sm border-b-2 transition-all",
-                            activeTab === "trending"
+                            activeTab === "devsync"
                                 ? "border-emerald-500 text-emerald-500"
                                 : "border-transparent text-gray-400 hover:text-gray-300",
                         )}
                     >
                         <div className="flex items-center gap-2">
                             <Zap size={16} />
-                            <span>Trending</span>
+                            <span>DevSync Public</span>
                         </div>
                     </button>
                     <button
-                        onClick={() => setActiveTab("categories")}
+                        onClick={() => setActiveTab("github")}
                         className={cn(
                             "py-3 px-4 font-medium text-sm border-b-2 transition-all",
-                            activeTab === "categories"
+                            activeTab === "github"
                                 ? "border-emerald-500 text-emerald-500"
                                 : "border-transparent text-gray-400 hover:text-gray-300",
                         )}
                     >
                         <div className="flex items-center gap-2">
                             <Filter size={16} />
-                            <span>Categories</span>
-                        </div>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("languages")}
-                        className={cn(
-                            "py-3 px-4 font-medium text-sm border-b-2 transition-all",
-                            activeTab === "languages"
-                                ? "border-emerald-500 text-emerald-500"
-                                : "border-transparent text-gray-400 hover:text-gray-300",
-                        )}
-                    >
-                        <div className="flex items-center gap-2">
-                            <span>#</span>
-                            <span>Languages</span>
+                            <span>Popular on GitHub</span>
                         </div>
                     </button>
                 </div>
 
-                {activeTab === "trending" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {trendingProjects.map((project) => (
-                            <ProjectCard key={project.id} project={project} />
-                        ))}
+                {activeTab === "devsync" && (
+                    <div>
+                        <div className="mb-4 text-sm text-gray-400">{filteredDevsyncProjects.length} public repositories found</div>
+                        {isLoadingDevsync ? (
+                            <div className="text-gray-400">Loading DevSync public repositories...</div>
+                        ) : devsyncError ? (
+                            <div className="text-red-400">{devsyncError}</div>
+                        ) : filteredDevsyncProjects.length === 0 ? (
+                            <div className="text-gray-400">No public DevSync repositories match your search.</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {filteredDevsyncProjects.map((project) => (
+                                    <DevSyncProjectCard key={project.id} project={project} />
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {activeTab === "categories" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {categories.map((category) => (
-                            <div
-                                key={category.name}
-                                className="bg-gray-800 rounded-lg p-5 hover:bg-gray-750 transition-all border border-gray-700 hover:border-emerald-500/50 cursor-pointer"
-                            >
-                                <h3 className="text-lg font-semibold text-white">{category.name}</h3>
-                                <p className="text-gray-400 text-sm mt-1">{category.count} projects</p>
+                {activeTab === "github" && (
+                    <div>
+                        <div className="mb-4 text-sm text-gray-400">{filteredGithubProjects.length} popular repositories found</div>
+                        {isLoadingGithub ? (
+                            <div className="text-gray-400">Loading popular GitHub repositories...</div>
+                        ) : githubError ? (
+                            <div className="text-red-400">{githubError}</div>
+                        ) : filteredGithubProjects.length === 0 ? (
+                            <div className="text-gray-400">No GitHub repositories match your search.</div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {filteredGithubProjects.map((repo) => (
+                                    <GithubProjectCard key={repo.id} repo={repo} />
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                )}
-
-                {activeTab === "languages" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {languages.map((language) => (
-                            <div
-                                key={language.name}
-                                className="bg-gray-800 rounded-lg p-5 hover:bg-gray-750 transition-all border border-gray-700 hover:border-emerald-500/50 cursor-pointer"
-                            >
-                                <h3 className="text-lg font-semibold text-white">{language.name}</h3>
-                                <p className="text-gray-400 text-sm mt-1">{language.count} projects</p>
-                            </div>
-                        ))}
+                        )}
                     </div>
                 )}
             </div>

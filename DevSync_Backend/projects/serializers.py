@@ -33,7 +33,8 @@ class ProjectCreateSerializer(serializers.ModelSerializer):
                 uploaded_by=user,
                 filetype="md"
             )
-        project.members.add(user)
+        # Create UserProjectRole for creator with admin role
+        UserProjectRole.objects.create(user=user, project=project, role='admin')
         return project
 
 class ProjectListSerializer(serializers.ModelSerializer):
@@ -56,6 +57,8 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     members = serializers.SerializerMethodField()
     issues = serializers.SerializerMethodField()
     tasks = serializers.SerializerMethodField()
+    pull_requests = serializers.SerializerMethodField()
+    discussions = serializers.SerializerMethodField()
     commit_count = serializers.IntegerField(source='commits_count', read_only=True)
     branch_count = serializers.IntegerField(source='branches_count', read_only=True)
     issues_count = serializers.IntegerField(source='issue_count', read_only=True)
@@ -75,6 +78,8 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             "contributors",
             "tasks",
             "issues",
+            "pull_requests",
+            "discussions",
             "readme",
             "commit_count",
             "branch_count",
@@ -221,6 +226,31 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             for task in obj.tasks.all()
         ]
 
+    def get_pull_requests(self, obj):
+        return [
+            {
+                "id": pr.id,
+                "from_branch": pr.from_branch.name if pr.from_branch else None,
+                "to_branch": pr.to_branch.name if pr.to_branch else None,
+                "created_by": pr.created_by.username if pr.created_by else None,
+                "message": pr.message,
+                "status": pr.status,
+                "created_at": pr.created_at,
+            }
+            for pr in obj.pull_requests.select_related("from_branch", "to_branch", "created_by").all().order_by("-created_at")
+        ]
+
+    def get_discussions(self, obj):
+        return [
+            {
+                "id": thread.id,
+                "title": thread.title,
+                "created_by": thread.created_by.username if thread.created_by else None,
+                "created_at": thread.created_at,
+            }
+            for thread in obj.threads.select_related("created_by").all().order_by("-created_at")
+        ]
+
     
 
 
@@ -348,6 +378,16 @@ class ProjectMemberListSerializer(serializers.ModelSerializer):
     def get_created_at(self, obj):
         # Fallback keeps frontend joined-date rendering stable even if membership timestamp is absent.
         return getattr(obj, "created_at", None) or getattr(obj.user, "date_joined", None)
+
+
+class DashboardTeammateSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    display_name = serializers.CharField()
+    role = serializers.CharField()
+    avatar = serializers.CharField(allow_blank=True, allow_null=True)
+    last_activity = serializers.DateTimeField(allow_null=True)
+    status = serializers.ChoiceField(choices=["online", "away", "offline"])
 
 
 class PendingInviteListSerializer(serializers.ModelSerializer):

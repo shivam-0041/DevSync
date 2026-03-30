@@ -135,3 +135,10 @@ class PasswordUpdateSerializer(serializers.ModelSerializer):
         if attrs['new_password'] != attrs['confirm_password']:
             raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
         return attrs
+
+
+class FollowUserSerializer(serializers.Serializer):
+    """Serializer for follow/unfollow responses"""
+    is_following = serializers.BooleanField()
+    followers_count = serializers.IntegerField()
+    message = serializers.CharField()
