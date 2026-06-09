@@ -4,6 +4,8 @@ import type { DashboardTask } from "../components/task-allocation"
 
 const BASE_URL = "http://localhost:8000/api/projects/"; // adjust if needed
 
+export const API_BASE_URL = BASE_URL;
+
 export interface ProjectFormData {
     name: string;
     description: string;
@@ -174,7 +176,7 @@ export async function fetchProjectData(projectId: string) {
 
         if (!token) {
             console.error("No token found in localStorage");
-            return { success: false };
+            return { success: false, data: null };
         }
 
         const response = await axios.get(`${BASE_URL}${projectId}/`, {
@@ -182,10 +184,10 @@ export async function fetchProjectData(projectId: string) {
                 Authorization: `Bearer ${token}`,
             },
         });
-        return response.data;
-    } catch (error) {
+        return { success: true, data: response.data };
+    } catch (error: any) {
         console.error("Failed to fetch project data:", error);
-        throw error;
+        return { success: false, data: null, error: error.message };
     }
 };
 
@@ -254,22 +256,47 @@ export async function createNewPL(slug,formData){
 
         if (!token) {
             console.error("No token found in localStorage");
-            return { success: false };
+            return { success: false, error: "No authentication token" };
         }
 
-        console.log(formData);
-        
-
-        const response = await axios.post(`${BASE_URL}${slug}/issues/create/`,formData, {
+        const response = await axios.post(`${BASE_URL}${slug}/pull-requests/create/`, formData, {
             headers: {
                 Authorization: `Bearer ${token}`,
             },
         });
         return { success: true, data: response.data };
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to create pull request:", error);
-        throw error;
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || "Failed to create pull request"
+        };
+    }
+}
+
+
+export async function fetchPullRequests(slug: string) {
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            return { success: false, error: "No authentication token" };
+        }
+
+        const response = await axios.get(`${BASE_URL}${slug}/pull-requests/`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        return { success: true, data: response.data };
+
+    } catch (error: any) {
+        console.error("Failed to fetch pull requests:", error);
+        return { 
+            success: false, 
+            error: error.response?.data?.error || error.message || "Failed to fetch pull requests"
+        };
     }
 }
 
@@ -717,6 +744,210 @@ export async function createProjectItem(
             success: false,
             error: error.response?.data?.error || "Failed to create item",
         }
+    }
+}
+
+// ============================
+// Discussion Thread & Comments Helper Functions
+// ============================
+
+export async function fetchDiscussionThreads(slug: string) {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) {
+            return { success: false, error: "No authentication token" };
+        }
+
+        const response = await axios.get(`${BASE_URL}${slug}/discussions/`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error("Failed to fetch discussions:", error);
+        return {
+            success: false,
+            error: error.response?.data?.detail || "Failed to fetch discussions",
+        };
+    }
+}
+
+export async function fetchDiscussionThread(slug: string, threadId: number) {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) {
+            return { success: false, error: "No authentication token" };
+        }
+
+        const response = await axios.get(`${BASE_URL}${slug}/discussions/${threadId}/`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error("Failed to fetch discussion thread:", error);
+        return {
+            success: false,
+            error: error.response?.data?.detail || "Failed to fetch discussion",
+        };
+    }
+}
+
+export async function createDiscussionThread(
+    slug: string,
+    data: {
+        title: string;
+        description: string;
+        thread_type: string;
+        labels?: string[];
+    }
+) {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) {
+            return { success: false, error: "No authentication token" };
+        }
+
+        const response = await axios.post(`${BASE_URL}${slug}/discussions/create/`, data, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error("Failed to create discussion thread:", error);
+        return {
+            success: false,
+            error: error.response?.data?.detail || "Failed to create discussion",
+        };
+    }
+}
+
+export async function addDiscussionComment(
+    slug: string,
+    threadId: number,
+    content: string
+) {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) {
+            return { success: false, error: "No authentication token" };
+        }
+
+        const response = await axios.post(
+            `${BASE_URL}${slug}/discussions/${threadId}/comments/create/`,
+            { content },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error("Failed to add comment:", error);
+        return {
+            success: false,
+            error: error.response?.data?.detail || "Failed to add comment",
+        };
+    }
+}
+
+export async function updateDiscussionComment(
+    slug: string,
+    threadId: number,
+    commentId: number,
+    content: string
+) {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) {
+            return { success: false, error: "No authentication token" };
+        }
+
+        const response = await axios.patch(
+            `${BASE_URL}${slug}/discussions/${threadId}/comments/${commentId}/`,
+            { content },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error("Failed to update comment:", error);
+        return {
+            success: false,
+            error: error.response?.data?.detail || "Failed to update comment",
+        };
+    }
+}
+
+export async function deleteDiscussionComment(
+    slug: string,
+    threadId: number,
+    commentId: number
+) {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) {
+            return { success: false, error: "No authentication token" };
+        }
+
+        await axios.delete(
+            `${BASE_URL}${slug}/discussions/${threadId}/comments/${commentId}/`,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Failed to delete comment:", error);
+        return {
+            success: false,
+            error: error.response?.data?.detail || "Failed to delete comment",
+        };
+    }
+}
+
+export async function closeDiscussionThread(slug: string, threadId: number) {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) {
+            return { success: false, error: "No authentication token" };
+        }
+
+        const response = await axios.post(
+            `${BASE_URL}${slug}/discussions/${threadId}/close/`,
+            {},
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error("Failed to close discussion:", error);
+        return {
+            success: false,
+            error: error.response?.data?.detail || "Failed to close discussion",
+        };
     }
 }
 

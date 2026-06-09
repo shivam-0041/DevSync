@@ -1,8 +1,9 @@
 from rest_framework import serializers
-from .models import Project, CodeFile, Branch, ProjectActivity, Issue, Whiteboard, ProjectTask, ProjectInvite, UserProjectRole
+from .models import Project, CodeFile, Branch, ProjectActivity, Issue, Whiteboard, ProjectTask, ProjectInvite, UserProjectRole, DiscussionThread, DiscussionComment, PullRequest
 from django.contrib.auth import get_user_model
 from .utils import ProjectInviteService, ProjectInviteResponseService
 from django.db import models
+from django.utils.timezone import now
 
 User = get_user_model()
 
@@ -244,11 +245,16 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         return [
             {
                 "id": thread.id,
+                "thread_id": thread.thread_id,
                 "title": thread.title,
+                "thread_type": thread.thread_type,
                 "created_by": thread.created_by.username if thread.created_by else None,
                 "created_at": thread.created_at,
+                "comment_count": thread.comment_count,
+                "is_closed": thread.is_closed,
+                "last_activity": thread.last_activity,
             }
-            for thread in obj.threads.select_related("created_by").all().order_by("-created_at")
+            for thread in obj.threads.select_related("created_by").all().order_by("-last_activity")
         ]
 
     
@@ -490,3 +496,244 @@ class ProjectInviteSerializer(serializers.ModelSerializer):
         # refresh instance from db so status is updated
         instance.refresh_from_db()
         return instance
+
+
+# ============================
+# Discussion Thread & Comments Serializers
+# ============================
+
+class DiscussionCommentSerializer(serializers.ModelSerializer):
+    user_details = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DiscussionComment
+        fields = [
+            'id', 'comment_id', 'user', 'user_details', 'content', 
+            'created_at', 'updated_at', 'is_edited', 'is_pinned'
+        ]
+        read_only_fields = ['id', 'comment_id', 'created_at', 'updated_at', 'is_edited']
+
+    def get_user_details(self, obj):
+        # Get user's role in the project
+        role = None
+        if hasattr(obj, 'thread') and obj.thread.project:
+            project_role = UserProjectRole.objects.filter(
+                user=obj.user,
+                project=obj.thread.project
+            ).first()
+            role = project_role.role if project_role else None
+        
+        return {
+            'id': obj.user.id,
+            'username': obj.user.username,
+            'email': obj.user.email,
+            'full_name': obj.user.full_name or obj.user.username,
+            'role': role,
+        }
+
+
+class DiscussionThreadCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DiscussionThread
+        fields = ['title', 'description', 'thread_type', 'labels']
+        
+    def create(self, validated_data):
+        request = self.context.get('request')
+        project_id = self.context.get('project_id')
+        
+        if not project_id or not request:
+            raise serializers.ValidationError('Project ID and request are required.')
+            
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            raise serializers.ValidationError('Project not found.')
+        
+        # Check if user is a project member
+        is_member = UserProjectRole.objects.filter(
+            project=project,
+            user=request.user
+        ).exists()
+        
+        if not is_member:
+            raise serializers.ValidationError('You must be a project member to create discussions.')
+        
+        thread = DiscussionThread.objects.create(
+            project=project,
+            created_by=request.user,
+            **validated_data
+        )
+        return thread
+
+
+class DiscussionThreadDetailSerializer(serializers.ModelSerializer):
+    created_by_details = serializers.SerializerMethodField()
+    comments = DiscussionCommentSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = DiscussionThread
+        fields = [
+            'id', 'thread_id', 'title', 'description', 'thread_type',
+            'created_by', 'created_by_details', 'created_at', 'updated_at',
+            'labels', 'is_closed', 'comment_count', 'last_activity', 'comments'
+        ]
+        read_only_fields = [
+            'id', 'thread_id', 'created_at', 'updated_at', 'comment_count', 'last_activity'
+        ]
+
+    def get_created_by_details(self, obj):
+        if not obj.created_by:
+            return None
+        return {
+            'id': obj.created_by.id,
+            'username': obj.created_by.username,
+            'email': obj.created_by.email,
+            'full_name': obj.created_by.full_name or obj.created_by.username,
+        }
+
+
+class DiscussionThreadListSerializer(serializers.ModelSerializer):
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+    latest_comment = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DiscussionThread
+        fields = [
+            'id', 'thread_id', 'title', 'thread_type', 'created_by_username',
+            'created_at', 'updated_at', 'labels', 'is_closed', 'comment_count',
+            'last_activity', 'latest_comment'
+        ]
+        read_only_fields = fields
+
+    def get_latest_comment(self, obj):
+        latest = obj.comments.order_by('-created_at').first()
+        if latest:
+            return {
+                'id': latest.id,
+                'user': latest.user.username,
+                'content': latest.content[:100] + '...' if len(latest.content) > 100 else latest.content,
+                'created_at': latest.created_at,
+            }
+        return None
+
+
+class DiscussionCommentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DiscussionComment
+        fields = ['content']
+        
+    def create(self, validated_data):
+        request = self.context.get('request')
+        thread_id = self.context.get('thread_id')
+        
+        if not thread_id or not request:
+            raise serializers.ValidationError('Thread ID and request are required.')
+        
+        try:
+            thread = DiscussionThread.objects.get(id=thread_id)
+        except DiscussionThread.DoesNotExist:
+            raise serializers.ValidationError('Discussion thread not found.')
+        
+        # Check if user is a project member
+        is_member = UserProjectRole.objects.filter(
+            project=thread.project,
+            user=request.user
+        ).exists()
+        
+        if not is_member:
+            raise serializers.ValidationError('You must be a project member to comment.')
+        
+        if thread.is_closed:
+            raise serializers.ValidationError('This discussion thread is closed.')
+        
+        comment = DiscussionComment.objects.create(
+            thread=thread,
+            user=request.user,
+            **validated_data
+        )
+        return comment
+
+
+class DiscussionCommentUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DiscussionComment
+        fields = ['content']
+        
+    def update(self, instance, validated_data):
+        request = self.context.get('request')
+        
+        # Only allow user to edit their own comments
+        if instance.user != request.user:
+            raise serializers.ValidationError('You can only edit your own comments.')
+        
+        instance.content = validated_data.get('content', instance.content)
+        instance.is_edited = True
+        instance.edited_at = now()
+        instance.save()
+        return instance
+
+
+# ============================
+# Pull Request Serializers
+# ============================
+
+class PullRequestCreateSerializer(serializers.ModelSerializer):
+    from_branch = serializers.CharField(write_only=True)
+    to_branch = serializers.CharField(write_only=True)
+    created_by = serializers.StringRelatedField(read_only=True)
+    
+    class Meta:
+        model = PullRequest
+        fields = ['from_branch', 'to_branch', 'message', 'labels', 'reviewers', 'is_draft', 'created_by']
+    
+    def create(self, validated_data):
+        request = self.context.get('request')
+        project_slug = self.context.get('project_slug')
+        from_branch_name = validated_data.pop('from_branch')
+        to_branch_name = validated_data.pop('to_branch')
+        
+        try:
+            project = Project.objects.get(slug=project_slug)
+            from_branch = Branch.objects.get(project=project, name=from_branch_name)
+            to_branch = Branch.objects.get(project=project, name=to_branch_name)
+        except (Project.DoesNotExist, Branch.DoesNotExist):
+            raise serializers.ValidationError('Invalid project or branch.')
+        
+        pull_request = PullRequest.objects.create(
+            project=project,
+            from_branch=from_branch,
+            to_branch=to_branch,
+            created_by=request.user,
+            **validated_data
+        )
+        return pull_request
+
+
+class PullRequestListSerializer(serializers.ModelSerializer):
+    from_branch = serializers.CharField(source='from_branch.name', read_only=True)
+    to_branch = serializers.CharField(source='to_branch.name', read_only=True)
+    created_by = serializers.StringRelatedField(read_only=True)
+    
+    class Meta:
+        model = PullRequest
+        fields = ['id', 'from_branch', 'to_branch', 'created_by', 'status', 'created_at', 'is_draft', 'message']
+
+
+class PullRequestDetailSerializer(serializers.ModelSerializer):
+    from_branch = serializers.CharField(source='from_branch.name', read_only=True)
+    to_branch = serializers.CharField(source='to_branch.name', read_only=True)
+    created_by = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = PullRequest
+        fields = '__all__'
+    
+    def get_created_by(self, obj):
+        if not obj.created_by:
+            return None
+        profile = getattr(obj.created_by, 'profile', None)
+        return {
+            'id': obj.created_by.id,
+            'username': obj.created_by.username,
+            'full_name': profile.full_name if profile else obj.created_by.get_full_name() or obj.created_by.username
+        }

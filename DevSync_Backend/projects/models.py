@@ -148,14 +148,82 @@ class Branch(models.Model):
 # Discussion Thread Model
 # ============================
 class DiscussionThread(models.Model):
+    TYPE_CHOICES = [
+        ('feature', 'Feature Request'),
+        ('bug', 'Bug Report'),
+        ('fix', 'Fix'),
+        ('improvement', 'Improvement'),
+        ('question', 'Question'),
+        ('discussion', 'Discussion'),
+        ('documentation', 'Documentation'),
+    ]
+
+    thread_id = models.CharField(max_length=20, editable=False, blank=True)  # Will be auto-generated in save()
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='threads')
     title = models.CharField(max_length=200)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    description = models.TextField(default='', blank=True)  # Reason/initial message
+    thread_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='discussion')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_discussions')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    labels = models.JSONField(default=list, blank=True)
+    is_closed = models.BooleanField(default=False)
+    comment_count = models.IntegerField(default=0, editable=False)
+    last_activity = models.DateTimeField(default=now)
 
+    class Meta:
+        ordering = ['-last_activity']
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.thread_id:
+            self.thread_id = f"disc-{uuid.uuid4().hex[:12]}"
+        super().save(*args, **kwargs)
+
+    def update_comment_count(self):
+        """Update comment count cache"""
+        self.comment_count = self.comments.count()
+        self.save(update_fields=['comment_count'])
+
+
+# ============================
+# Discussion Comment Model
+# ============================
+class DiscussionComment(models.Model):
+    comment_id = models.CharField(max_length=20, editable=False, blank=True)  # Will be auto-generated in save()
+    thread = models.ForeignKey(DiscussionThread, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='discussion_comments')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_edited = models.BooleanField(default=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
+    
+    # Optional: For pinned comments
+    is_pinned = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Comment by {self.user} on {self.thread.title}"
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        if not self.comment_id:
+            self.comment_id = f"cmt-{uuid.uuid4().hex[:12]}"
+        
+        super().save(*args, **kwargs)
+        
+        # Update parent thread's last_activity and comment count
+        if is_new:
+            self.thread.last_activity = now()
+            self.thread.update_comment_count()
+        else:
+            self.thread.last_activity = now()
+            self.thread.save(update_fields=['last_activity'])
 
 # ============================
 # Code File Model

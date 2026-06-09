@@ -7,6 +7,18 @@ import { Card, CardContent, CardFooter } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { formatDistanceToNow } from "date-fns"
 
+// Helper function to safely format dates
+const formatSafeDate = (dateString: string | undefined | null): string => {
+    if (!dateString) return "unknown"
+    try {
+        const date = new Date(dateString)
+        if (isNaN(date.getTime())) return "unknown"
+        return formatDistanceToNow(date, { addSuffix: true })
+    } catch (error) {
+        return "unknown"
+    }
+}
+
 interface ProjectCardProps {
   project: {
     project_id: string;      
@@ -96,7 +108,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
               </Avatar>
             ))}
           </div>
-          <span className="text-xs text-zinc-500">Updated {formatDistanceToNow(new Date(project.updated_at), { addSuffix: true })}</span>
+          <span className="text-xs text-zinc-500">Updated {formatSafeDate(project.updated_at)}</span>
         </div>
       </CardFooter>
     </Card>

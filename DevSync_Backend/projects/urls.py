@@ -15,6 +15,7 @@ urlpatterns = [
     path("<slug:slug>/tasks/create/", views.TasksCreateView.as_view(),name="task-create"),
     path("<slug:slug>/whiteboard/<str:whiteboard_id>/", views.get_whiteboard, name="get_whiteboard"),
     path("<slug:slug>/whiteboard/<str:whiteboard_id>/update/", views.update_whiteboard, name="update_whiteboard"),
+    path("<slug:slug>/whiteboard/<str:whiteboard_id>/undo/", views.undo_whiteboard, name="undo_whiteboard"),
     
     # File upload endpoint
     path("<slug:slug>/files/upload/", views.upload_files, name="upload-files"),
@@ -31,4 +32,18 @@ urlpatterns = [
     path("<slug:slug>/members/", views.get_project_members, name="get-project-members"),
     path("<slug:slug>/pending-invites/", views.get_pending_invites, name="get-pending-invites"),
     path("<slug:slug>/pending-invites/<int:invite_id>/cancel/", views.cancel_pending_invite, name="cancel-pending-invite"),
+    
+    # Discussion endpoints
+    path("<slug:slug>/discussions/", views.list_discussion_threads, name="list-discussions"),
+    path("<slug:slug>/discussions/create/", views.create_discussion_thread, name="create-discussion"),
+    path("<slug:slug>/discussions/<int:thread_id>/", views.discussion_thread_detail, name="discussion-detail"),
+    path("<slug:slug>/discussions/<int:thread_id>/close/", views.close_discussion_thread, name="close-discussion"),
+    path("<slug:slug>/discussions/<int:thread_id>/comments/", views.list_discussion_comments, name="list-comments"),
+    path("<slug:slug>/discussions/<int:thread_id>/comments/create/", views.create_discussion_comment, name="create-comment"),
+    path("<slug:slug>/discussions/<int:thread_id>/comments/<int:comment_id>/", views.update_delete_discussion_comment, name="update-delete-comment"),
+    
+    # Pull Request endpoints
+    path("<slug:slug>/pull-requests/", views.list_pull_requests, name="list-pull-requests"),
+    path("<slug:slug>/pull-requests/create/", views.create_pull_request, name="create-pull-request"),
+    path("<slug:slug>/pull-requests/<int:pr_id>/", views.get_pull_request, name="get-pull-request"),
 ]

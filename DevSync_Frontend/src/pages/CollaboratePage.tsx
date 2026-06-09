@@ -217,7 +217,8 @@ export default function CollaboratePage() {
         const createdItemId = createResult.data?.item?.id
 
         const updatedProject = await fetchProjectData(projectSlug)
-        const updatedFiles = Array.isArray(updatedProject?.files) ? updatedProject.files : []
+        const projectData = updatedProject.success && updatedProject.data ? updatedProject.data : {}
+        const updatedFiles = Array.isArray(projectData?.files) ? projectData.files : []
         setProjectFiles(updatedFiles)
 
         toast.success(`${itemType === "file" ? "File" : "Folder"} created successfully`)
@@ -289,10 +290,12 @@ export default function CollaboratePage() {
 
             setLoading(true)
             try {
-                const [projectData, membersResult] = await Promise.all([
-                    fetchProjectData(projectSlug),
-                    fetchProjectMembers(projectSlug),
-                ])
+const [projectResultObj, membersResult] = await Promise.all([
+                fetchProjectData(projectSlug),
+                fetchProjectMembers(projectSlug),
+            ])
+            
+            const projectData = projectResultObj.success && projectResultObj.data ? projectResultObj.data : {}
 
                 setProjectName(projectData?.name || "Project")
                 setProjectOwner(projectData?.created_by?.username || username || "")

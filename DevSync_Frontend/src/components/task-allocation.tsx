@@ -22,9 +22,10 @@ interface TaskAllocationProps {
   sprintName?: string
 }
 
-export function TaskAllocation({ tasks, sprintName = "Current sprint tasks" }: TaskAllocationProps) {
-  const completedTasks = tasks.filter((task) => task.status === "done").length
-  const totalTasks = tasks.length
+export function TaskAllocation({ tasks = [], sprintName = "Current sprint tasks" }: TaskAllocationProps) {
+  const safeTasks = Array.isArray(tasks) ? tasks : []
+  const completedTasks = safeTasks.filter((task) => task.status === "done").length
+  const totalTasks = safeTasks.length
   const progressPercentage = Math.round((completedTasks / totalTasks) * 100) || 0
 
   return (
@@ -50,7 +51,7 @@ export function TaskAllocation({ tasks, sprintName = "Current sprint tasks" }: T
         </div>
 
         <div className="space-y-3 mt-2">
-          {tasks.map((task) => (
+          {safeTasks.map((task) => (
             <TaskCard key={task.task_id} task={task} />
           ))}
         </div>
@@ -58,8 +59,8 @@ export function TaskAllocation({ tasks, sprintName = "Current sprint tasks" }: T
         <div className="mt-4">
           <h4 className="text-sm font-medium mb-2">Team Members</h4>
           <div className="flex flex-wrap gap-2">
-            {Array.from(new Set(tasks.map((t) => t.assignee?.name).filter((n): n is string => !!n))).map((name) => {
-              const assignee = tasks.find((t) => t.assignee?.name === name)?.assignee
+            {Array.from(new Set(safeTasks.map((t) => t.assignee?.name).filter((n): n is string => !!n))).map((name) => {
+              const assignee = safeTasks.find((t) => t.assignee?.name === name)?.assignee
               if (!assignee) return null
 
               return (

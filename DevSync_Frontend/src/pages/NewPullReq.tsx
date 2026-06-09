@@ -1,18 +1,18 @@
 "use client"
 
-import React, { useState, useCallback, useMemo } from "react"
+import React, { useState, useCallback, useMemo, useEffect } from "react"
+import { useParams } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
 import { Textarea } from "../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
-import { Badge } from "../components/ui/badge"
-import { GitBranch, GitCommit, ArrowRight, Plus, Minus, FileText, Users, CheckCircle2 } from "lucide-react"
-import {Link} from "react-router-dom"
-import AuthGuard from "../components/auth_guard"
+import { GitBranch, ArrowRight, Plus, Users, CheckCircle2 } from "lucide-react"
+import { Link } from "react-router-dom"
+import { fetchProjectMembers, fetchProjectData, createNewPL } from "../routes/projects"
+import { toast } from "sonner"
 
 interface FormData {
     title: string
@@ -33,23 +33,8 @@ interface TeamMember {
     avatar: string
 }
 
-interface Commit {
-    id: string
-    message: string
-    author: string
-    time: string
-    additions: number
-    deletions: number
-}
-
-interface ChangedFile {
-    name: string
-    additions: number
-    deletions: number
-    status: "added" | "modified" | "deleted"
-}
-
 const NewPullRequestPage: React.FC = () => {
+    const { slug } = useParams<{ slug: string }>()
     const [formData, setFormData] = useState<FormData>({
         title: "",
         description: "",
@@ -62,44 +47,142 @@ const NewPullRequestPage: React.FC = () => {
         draft: false,
     })
     const [isCreating, setIsCreating] = useState<boolean>(false)
+    const [branches, setBranches] = useState<string[]>([])
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+    const [isLoadingData, setIsLoadingData] = useState<boolean>(true)
+
+    // Fetch real data on mount
+    useEffect(() => {
+        if (!slug) return
+        
+        const loadData = async () => {
+            try {
+                setIsLoadingData(true)
+                
+                // Fetch project data to get branches
+                const projectResult = await fetchProjectData(slug)
+                console.log("Project result:", projectResult)
+                
+                if (projectResult.success && projectResult.data) {
+                    // Try different possible structures for branches
+                    let projectBranches = []
+                    
+                    if (Array.isArray(projectResult.data.branches)) {
+                        projectBranches = projectResult.data.branches.map((b: any) => 
+                            typeof b === 'string' ? b : b.name || b
+                        )
+                    }
+                    
+                    if (projectBranches.length === 0) {
+                        projectBranches = ["main"]
+                    }
+                    
+                    console.log("Branches:", projectBranches)
+                    setBranches(projectBranches)
+                    setFormData(prev => ({
+                        ...prev,
+                        baseBranch: projectBranches[0] || "main",
+                        compareBranch: projectBranches[projectBranches.length - 1] || "main"
+                    }))
+                } else {
+                    console.warn("Project fetch failed or no data:", projectResult)
+                    setBranches(["main"])
+                }
+                
+                // Fetch project members for assignees and reviewers
+                const membersResult = await fetchProjectMembers(slug)
+                console.log("Members result:", membersResult)
+                
+                if (membersResult.success && Array.isArray(membersResult.members)) {
+                    const members = membersResult.members.map((m: any) => ({
+                        id: m.id || m.user_id,
+                        name: m.full_name || m.name || m.username || "Unknown",
+                        username: m.username,
+                        avatar: m.avatar || "/placeholder.svg?height=32&width=32"
+                    }))
+                    console.log("Mapped members:", members)
+                    setTeamMembers(members)
+                } else {
+                    console.warn("Members fetch failed or no data:", membersResult)
+                    setTeamMembers([])
+                }
+            } catch (error) {
+                console.error("Failed to load pull request data:", error)
+                toast.error("Failed to load project data")
+                setBranches(["main"])
+                setTeamMembers([])
+            } finally {
+                setIsLoadingData(false)
+            }
+        }
+        
+        loadData()
+    }, [slug])
 
     const handleInputChange = useCallback((field: keyof FormData, value: string | boolean | string[]) => {
         setFormData((prev) => ({ ...prev, [field]: value }))
     }, [])
 
-    const handleSubmit = useCallback(async (e: React.FormEvent) => {
-        e.preventDefault()
-        setIsCreating(true)
-
-        // Simulate API call
-        setTimeout(() => {
-            setIsCreating(false)
-            // Redirect to the new pull request
-            window.location.href = `/pull-request/123`
-        }, 2000)
+    const handleAddReviewers = useCallback(() => {
+        toast.info("Reviewer selection coming soon")
     }, [])
 
-    const branches = useMemo(
-        () => [
-            "main",
-            "develop",
-            "feature/user-authentication",
-            "feature/dashboard-ui",
-            "bugfix/login-issue",
-            "hotfix/security-patch",
-        ],
-        [],
-    )
+    const handleAssignYourself = useCallback(() => {
+        toast.info("Assignment feature coming soon")
+    }, [])
 
-    const teamMembers = useMemo<TeamMember[]>(
-        () => [
-            { id: 1, name: "Alex Johnson", username: "alexj", avatar: "/placeholder.svg?height=32&width=32" },
-            { id: 2, name: "Sarah Chen", username: "sarahc", avatar: "/placeholder.svg?height=32&width=32" },
-            { id: 3, name: "Michael Rodriguez", username: "michaelr", avatar: "/placeholder.svg?height=32&width=32" },
-            { id: 4, name: "Emma Wilson", username: "emmaw", avatar: "/placeholder.svg?height=32&width=32" },
-        ],
-        [],
-    )
+    const handleAddLabels = useCallback(() => {
+        toast.info("Label selection coming soon")
+    }, [])
+
+    const handleSetMilestone = useCallback(() => {
+        toast.info("Milestone selection coming soon")
+    }, [])
+
+    const handleSubmit = useCallback(async (e: React.FormEvent) => {
+        e.preventDefault()
+        
+        if (!slug) {
+            toast.error("Project slug not found")
+            return
+        }
+        
+        if (!branches || branches.length === 0) {
+            toast.error("No branches available")
+            return
+        }
+        
+        if (!formData.description.trim()) {
+            toast.error("Please enter a pull request description")
+            return
+        }
+
+        setIsCreating(true)
+
+        try {
+            const result = await createNewPL(slug, {
+                from_branch: formData.compareBranch,
+                to_branch: formData.baseBranch,
+                message: formData.description,
+                labels: formData.labels,
+                reviewers: formData.reviewers,
+                is_draft: formData.draft,
+            })
+
+            if (result.success) {
+                toast.success("Pull request created successfully!")
+                // Redirect to project or pull requests page
+                window.location.href = `/${window.location.pathname.split('/')[1]}/project/${slug}/pull-requests`
+            } else {
+                toast.error(result.error || "Failed to create pull request")
+            }
+        } catch (error) {
+            toast.error("Failed to create pull request")
+            console.error(error)
+        } finally {
+            setIsCreating(false)
+        }
+    }, [slug, formData, branches])
 
     const availableLabels = useMemo(
         () => [
@@ -111,118 +194,6 @@ const NewPullRequestPage: React.FC = () => {
         ],
         [],
     )
-
-    const commits = useMemo<Commit[]>(
-        () => [
-            {
-                id: "a1b2c3d",
-                message: "Add user authentication endpoints",
-                author: "Alex Johnson",
-                time: "2 hours ago",
-                additions: 156,
-                deletions: 23,
-            },
-            {
-                id: "e4f5g6h",
-                message: "Implement JWT token validation",
-                author: "Alex Johnson",
-                time: "1 hour ago",
-                additions: 89,
-                deletions: 12,
-            },
-            {
-                id: "i7j8k9l",
-                message: "Add password reset functionality",
-                author: "Alex Johnson",
-                time: "30 minutes ago",
-                additions: 67,
-                deletions: 5,
-            },
-        ],
-        [],
-    )
-
-    const changedFiles = useMemo<ChangedFile[]>(
-        () => [
-            {
-                name: "src/auth/auth.controller.ts",
-                additions: 45,
-                deletions: 8,
-                status: "modified",
-            },
-            {
-                name: "src/auth/auth.service.ts",
-                additions: 78,
-                deletions: 12,
-                status: "modified",
-            },
-            {
-                name: "src/auth/dto/login.dto.ts",
-                additions: 23,
-                deletions: 0,
-                status: "added",
-            },
-            {
-                name: "src/auth/guards/jwt.guard.ts",
-                additions: 34,
-                deletions: 0,
-                status: "added",
-            },
-            {
-                name: "src/config/database.config.ts",
-                additions: 12,
-                deletions: 8,
-                status: "modified",
-            },
-        ],
-        [],
-    )
-
-    const CommitCard: React.FC<{ commit: Commit }> = React.memo(({ commit }) => (
-        <div className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900 p-3">
-            <div className="flex items-center space-x-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
-                    <GitCommit className="h-4 w-4" />
-                </div>
-                <div>
-                    <p className="font-medium">{commit.message}</p>
-                    <p className="text-sm text-gray-400">
-                        {commit.author} committed {commit.time}
-                    </p>
-                </div>
-            </div>
-            <div className="flex items-center space-x-2 text-sm">
-                <span className="text-emerald-500">+{commit.additions}</span>
-                <span className="text-red-500">-{commit.deletions}</span>
-                <code className="rounded bg-gray-800 px-2 py-1 text-xs">{commit.id}</code>
-            </div>
-        </div>
-    ))
-
-    const FileCard: React.FC<{ file: ChangedFile }> = React.memo(({ file }) => (
-        <div className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900 p-3">
-            <div className="flex items-center space-x-3">
-                <div
-                    className={`h-2 w-2 rounded-full ${file.status === "added" ? "bg-emerald-500" : file.status === "modified" ? "bg-yellow-500" : "bg-red-500"
-                        }`}
-                />
-                <span className="font-mono text-sm">{file.name}</span>
-                <Badge variant="outline" className="text-xs">
-                    {file.status}
-                </Badge>
-            </div>
-            <div className="flex items-center space-x-2 text-sm">
-                <span className="flex items-center text-emerald-500">
-                    <Plus className="mr-1 h-3 w-3" />
-                    {file.additions}
-                </span>
-                <span className="flex items-center text-red-500">
-                    <Minus className="mr-1 h-3 w-3" />
-                    {file.deletions}
-                </span>
-            </div>
-        </div>
-    ))
 
     const TeamMemberCard: React.FC<{ member: TeamMember }> = React.memo(({ member }) => (
         <div className="flex items-center space-x-3">
@@ -251,6 +222,13 @@ const NewPullRequestPage: React.FC = () => {
                     <p className="mt-2 text-gray-400">Compare changes and create a pull request to merge your work.</p>
                 </div>
 
+                {isLoadingData ? (
+                    <Card className="border-gray-800 bg-gray-900/50">
+                        <CardContent className="pt-6 text-center">
+                            <p className="text-gray-400">Loading project data...</p>
+                        </CardContent>
+                    </Card>
+                ) : (
                 <div className="grid gap-8 lg:grid-cols-3">
                     <div className="lg:col-span-2">
                         <form onSubmit={handleSubmit} className="space-y-6">
@@ -315,10 +293,10 @@ const NewPullRequestPage: React.FC = () => {
                                             Able to merge
                                         </div>
                                         <div className="flex items-center text-gray-400">
-                                            <GitCommit className="mr-1 h-4 w-4" />3 commits
+                                            <Plus className="mr-1 h-4 w-4" />3 commits
                                         </div>
                                         <div className="flex items-center text-gray-400">
-                                            <FileText className="mr-1 h-4 w-4" />5 files changed
+                                            <Plus className="mr-1 h-4 w-4" />5 files changed
                                         </div>
                                     </div>
                                 </CardContent>
@@ -393,19 +371,24 @@ const NewPullRequestPage: React.FC = () => {
                             </Card> */}
 
                             <div className="flex space-x-4">
-                                <Button type="submit" className="bg-emerald-500 text-black hover:bg-emerald-600" disabled={isCreating}>
+                                <Button 
+                                    type="submit" 
+                                    className="bg-emerald-500 text-black hover:bg-emerald-600" 
+                                    disabled={isCreating || isLoadingData || !formData.description.trim()}
+                                >
                                     {isCreating ? "Creating pull request..." : "Create pull request"}
                                 </Button>
                                 <Button
                                     type="button"
                                     variant="outline"
                                     className="border-gray-700"
-                                    onClick={() => handleInputChange("draft", true)}
+                                    onClick={() => handleInputChange("draft", !formData.draft)}
+                                    disabled={isCreating || isLoadingData}
                                 >
                                     Create draft pull request
                                 </Button>
-                                <Link href="/repository/devsync-web-app">
-                                    <Button variant="outline" className="border-gray-700">
+                                <Link to={`/${window.location.pathname.split('/')[1]}/project/${slug}`}>
+                                    <Button variant="outline" className="border-gray-700" disabled={isCreating || isLoadingData}>
                                         Cancel
                                     </Button>
                                 </Link>
@@ -426,7 +409,13 @@ const NewPullRequestPage: React.FC = () => {
                                     {teamMembers.slice(0, 2).map((member) => (
                                         <TeamMemberCard key={member.id} member={member} />
                                     ))}
-                                    <Button variant="outline" size="sm" className="w-full border-gray-700">
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="w-full border-gray-700"
+                                        onClick={handleAddReviewers}
+                                        disabled={isCreating || isLoadingData}
+                                    >
                                         <Plus className="mr-2 h-4 w-4" />
                                         Add reviewers
                                     </Button>
@@ -439,7 +428,13 @@ const NewPullRequestPage: React.FC = () => {
                                 <CardTitle>Assignees</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <Button variant="outline" size="sm" className="w-full border-gray-700">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="w-full border-gray-700"
+                                    onClick={handleAssignYourself}
+                                    disabled={isCreating || isLoadingData}
+                                >
                                     <Plus className="mr-2 h-4 w-4" />
                                     Assign yourself
                                 </Button>
@@ -458,7 +453,13 @@ const NewPullRequestPage: React.FC = () => {
                                             <span className="text-sm">{label.name}</span>
                                         </div>
                                     ))}
-                                    <Button variant="outline" size="sm" className="w-full border-gray-700">
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="w-full border-gray-700"
+                                        onClick={handleAddLabels}
+                                        disabled={isCreating || isLoadingData}
+                                    >
                                         <Plus className="mr-2 h-4 w-4" />
                                         Add labels
                                     </Button>
@@ -471,7 +472,13 @@ const NewPullRequestPage: React.FC = () => {
                                 <CardTitle>Milestone</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <Button variant="outline" size="sm" className="w-full border-gray-700">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="w-full border-gray-700"
+                                    onClick={handleSetMilestone}
+                                    disabled={isCreating || isLoadingData}
+                                >
                                     <Plus className="mr-2 h-4 w-4" />
                                     Set milestone
                                 </Button>
@@ -479,6 +486,7 @@ const NewPullRequestPage: React.FC = () => {
                         </Card>
                     </div>
                 </div>
+                )}
             </div>
     )
 }

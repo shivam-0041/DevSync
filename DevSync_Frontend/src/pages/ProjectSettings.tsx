@@ -82,9 +82,11 @@ export default function ProjectSettings() {
             if (slug) {
                 setLoading(true);
                 fetchProjectData(slug)
-                .then((data) => {
-                    console.log(data);
-                    setProject(data);
+                .then((result) => {
+                    console.log(result);
+                    if (result.success && result.data) {
+                        setProject(result.data);
+                    }
                 })
                 .catch((err) => {
                     console.error("Error fetching project data:", err);

@@ -11,10 +11,19 @@ from .serializers import (
     ProjectMemberListSerializer,
     PendingInviteListSerializer,
     DashboardTeammateSerializer,
+    DiscussionThreadCreateSerializer,
+    DiscussionThreadDetailSerializer,
+    DiscussionThreadListSerializer,
+    DiscussionCommentCreateSerializer,
+    DiscussionCommentUpdateSerializer,
+    DiscussionCommentSerializer,
+    PullRequestCreateSerializer,
+    PullRequestListSerializer,
+    PullRequestDetailSerializer,
 )
 
 from core.models import Profile
-from .models import Project, Whiteboard, Issue, ProjectTask, ProjectInvite, Branch, CodeFile, UserProjectRole
+from .models import Project, Whiteboard, Issue, ProjectTask, ProjectInvite, Branch, CodeFile, UserProjectRole, DiscussionThread, DiscussionComment, PullRequest
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -23,9 +32,42 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.utils.timezone import now
 from uuid import uuid4
+import copy
 from django.core.files.base import ContentFile
 
 User = get_user_model()
+
+
+def _extract_whiteboard_payload(request_data):
+    if isinstance(request_data, dict) and isinstance(request_data.get("data"), dict):
+        return request_data["data"]
+    if isinstance(request_data, dict):
+        return request_data
+    return {}
+
+
+def _strip_history(payload):
+    cleaned = copy.deepcopy(payload)
+    cleaned.pop("history", None)
+    return cleaned
+
+
+def _build_whiteboard_with_history(whiteboard, incoming_data):
+    current_data = whiteboard.data or {}
+    current_snapshot = _strip_history(current_data) if isinstance(current_data, dict) else {}
+    history = []
+
+    if isinstance(current_data, dict):
+        history = copy.deepcopy(current_data.get("history", []))
+        if current_snapshot and (current_snapshot.get("canvasImageData") or current_snapshot.get("strokes") or current_snapshot.get("shapes")):
+            history = [current_snapshot] + history
+
+    history = history[:2]
+    new_payload = copy.deepcopy(incoming_data)
+    new_payload["history"] = history
+    return new_payload
+
+
 class CreateProjectView(generics.CreateAPIView):
     queryset = Project.objects.all()
     serializer_class = ProjectCreateSerializer
@@ -100,7 +142,36 @@ def get_whiteboard(request, slug, whiteboard_code):
 def update_whiteboard(request, slug, whiteboard_code):
     project = get_object_or_404(Project, slug=slug, whiteboard_id=whiteboard_code)
     whiteboard, _ = Whiteboard.objects.get_or_create(repository=project)
-    serializer = WhiteboardSerializer(whiteboard, data=request.data, partial=True)
+    incoming_data = _extract_whiteboard_payload(request.data)
+    whiteboard_data = _build_whiteboard_with_history(whiteboard, incoming_data)
+    serializer = WhiteboardSerializer(whiteboard, data={"data": whiteboard_data}, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def undo_whiteboard(request, slug, whiteboard_code):
+    project = get_object_or_404(Project, slug=slug, whiteboard_id=whiteboard_code)
+    whiteboard, _ = Whiteboard.objects.get_or_create(repository=project)
+    current_data = whiteboard.data or {}
+
+    if not isinstance(current_data, dict):
+        return Response({'error': 'Whiteboard data is invalid'}, status=status.HTTP_400_BAD_REQUEST)
+
+    history = copy.deepcopy(current_data.get('history', []))
+    if not history:
+        return Response({'error': 'No previous snapshot available'}, status=status.HTTP_400_BAD_REQUEST)
+
+    previous_state = history[0] or {}
+    if not isinstance(previous_state, dict):
+        return Response({'error': 'Snapshot data is invalid'}, status=status.HTTP_400_BAD_REQUEST)
+
+    previous_state = _strip_history(previous_state)
+    previous_state['history'] = history[1:3]
+
+    serializer = WhiteboardSerializer(whiteboard, data={'data': previous_state}, partial=True)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
@@ -914,3 +985,454 @@ def create_project_item(request, slug):
         },
         status=status.HTTP_201_CREATED,
     )
+
+
+# ============================
+# Discussion Thread Views
+# ============================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_discussion_thread(request, slug):
+    """
+    Create a new discussion thread in a project
+    POST /api/projects/{slug}/discussions/create/
+    Payload: {
+        "title": "Discussion title",
+        "description": "Initial message/reason",
+        "thread_type": "feature|bug|fix|improvement|question|discussion|documentation",
+        "labels": []
+    }
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+    except Project.DoesNotExist:
+        return Response(
+            {'error': 'Project not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user is a project member
+    is_member = UserProjectRole.objects.filter(
+        project=project,
+        user=request.user
+    ).exists()
+
+    if not is_member:
+        return Response(
+            {'error': 'You must be a project member to create discussions'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    serializer = DiscussionThreadCreateSerializer(
+        data=request.data,
+        context={'request': request, 'project_id': project.id}
+    )
+    
+    if serializer.is_valid():
+        thread = serializer.save()
+        return Response(
+            DiscussionThreadDetailSerializer(thread).data,
+            status=status.HTTP_201_CREATED
+        )
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_discussion_threads(request, slug):
+    """
+    List all discussion threads for a project
+    GET /api/projects/{slug}/discussions/
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+    except Project.DoesNotExist:
+        return Response(
+            {'error': 'Project not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user is a project member
+    is_member = UserProjectRole.objects.filter(
+        project=project,
+        user=request.user
+    ).exists()
+
+    if not is_member:
+        return Response(
+            {'error': 'You must be a project member to view discussions'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    threads = DiscussionThread.objects.filter(project=project).order_by('-last_activity')
+    serializer = DiscussionThreadListSerializer(threads, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def discussion_thread_detail(request, slug, thread_id):
+    """
+    Get discussion thread details and comments
+    GET /api/projects/{slug}/discussions/{thread_id}/
+    
+    Update discussion thread (close, labels, etc.)
+    PATCH /api/projects/{slug}/discussions/{thread_id}/
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+        thread = DiscussionThread.objects.get(id=thread_id, project=project)
+    except (Project.DoesNotExist, DiscussionThread.DoesNotExist):
+        return Response(
+            {'error': 'Project or discussion not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user is a project member
+    is_member = UserProjectRole.objects.filter(
+        project=project,
+        user=request.user
+    ).exists()
+
+    if not is_member:
+        return Response(
+            {'error': 'You must be a project member to access this discussion'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if request.method == 'GET':
+        serializer = DiscussionThreadDetailSerializer(thread)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    elif request.method == 'PATCH':
+        # Only allow creator or admin to update thread
+        is_creator = thread.created_by == request.user
+        is_admin = UserProjectRole.objects.filter(
+            project=project,
+            user=request.user,
+            role='admin'
+        ).exists()
+
+        if not (is_creator or is_admin):
+            return Response(
+                {'error': 'Only creator or admin can update this thread'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = DiscussionThreadDetailSerializer(
+            thread,
+            data=request.data,
+            partial=True
+        )
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ============================
+# Discussion Comment Views
+# ============================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_discussion_comment(request, slug, thread_id):
+    """
+    Add a comment to a discussion thread
+    POST /api/projects/{slug}/discussions/{thread_id}/comments/
+    Payload: {
+        "content": "Comment text"
+    }
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+        thread = DiscussionThread.objects.get(id=thread_id, project=project)
+    except (Project.DoesNotExist, DiscussionThread.DoesNotExist):
+        return Response(
+            {'error': 'Project or discussion not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user is a project member
+    is_member = UserProjectRole.objects.filter(
+        project=project,
+        user=request.user
+    ).exists()
+
+    if not is_member:
+        return Response(
+            {'error': 'You must be a project member to comment'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if thread.is_closed:
+        return Response(
+            {'error': 'This discussion thread is closed'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    serializer = DiscussionCommentCreateSerializer(
+        data=request.data,
+        context={'request': request, 'thread_id': thread_id}
+    )
+    
+    if serializer.is_valid():
+        comment = serializer.save()
+        return Response(
+            DiscussionCommentSerializer(comment).data,
+            status=status.HTTP_201_CREATED
+        )
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_discussion_comments(request, slug, thread_id):
+    """
+    List all comments for a discussion thread
+    GET /api/projects/{slug}/discussions/{thread_id}/comments/
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+        thread = DiscussionThread.objects.get(id=thread_id, project=project)
+    except (Project.DoesNotExist, DiscussionThread.DoesNotExist):
+        return Response(
+            {'error': 'Project or discussion not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user is a project member
+    is_member = UserProjectRole.objects.filter(
+        project=project,
+        user=request.user
+    ).exists()
+
+    if not is_member:
+        return Response(
+            {'error': 'You must be a project member to view comments'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    comments = thread.comments.all().order_by('created_at')
+    serializer = DiscussionCommentSerializer(comments, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def update_delete_discussion_comment(request, slug, thread_id, comment_id):
+    """
+    Update or delete a comment
+    PATCH /api/projects/{slug}/discussions/{thread_id}/comments/{comment_id}/
+    DELETE /api/projects/{slug}/discussions/{thread_id}/comments/{comment_id}/
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+        thread = DiscussionThread.objects.get(id=thread_id, project=project)
+        comment = DiscussionComment.objects.get(id=comment_id, thread=thread)
+    except (Project.DoesNotExist, DiscussionThread.DoesNotExist, DiscussionComment.DoesNotExist):
+        return Response(
+            {'error': 'Project, discussion, or comment not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Only allow comment author or project admin to modify
+    is_author = comment.user == request.user
+    is_admin = UserProjectRole.objects.filter(
+        project=project,
+        user=request.user,
+        role='admin'
+    ).exists()
+
+    if not (is_author or is_admin):
+        return Response(
+            {'error': 'Only comment author or admin can modify this comment'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if request.method == 'PATCH':
+        serializer = DiscussionCommentUpdateSerializer(
+            comment,
+            data=request.data,
+            context={'request': request},
+            partial=True
+        )
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                DiscussionCommentSerializer(comment).data,
+                status=status.HTTP_200_OK
+            )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        comment.delete()
+        return Response(
+            {'message': 'Comment deleted successfully'},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def close_discussion_thread(request, slug, thread_id):
+    """
+    Close or reopen a discussion thread (admin and maintainer only)
+    POST /api/projects/{slug}/discussions/{thread_id}/close/
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+        thread = DiscussionThread.objects.get(id=thread_id, project=project)
+    except (Project.DoesNotExist, DiscussionThread.DoesNotExist):
+        return Response(
+            {'error': 'Project or discussion not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Only admins and maintainers can close discussions
+    user_role = UserProjectRole.objects.filter(
+        project=project,
+        user=request.user
+    ).values_list('role', flat=True).first()
+
+    if user_role not in ['admin', 'maintainer']:
+        return Response(
+            {'error': 'Only admins and maintainers can close discussions'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Toggle the is_closed flag
+    thread.is_closed = not thread.is_closed
+    thread.save()
+
+    return Response(
+        DiscussionThreadDetailSerializer(thread).data,
+        status=status.HTTP_200_OK
+    )
+
+
+# ============================
+# Pull Request Views
+# ============================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_pull_request(request, slug):
+    """
+    Create a new pull request
+    POST /api/projects/{slug}/pull-requests/create/
+    
+    Request body:
+    {
+        "from_branch": "feature-branch",
+        "to_branch": "main",
+        "message": "PR description",
+        "labels": ["bug", "enhancement"],
+        "reviewers": ["user1", "user2"],
+        "is_draft": false
+    }
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+    except Project.DoesNotExist:
+        return Response(
+            {'error': 'Project not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user is a project member
+    is_member = UserProjectRole.objects.filter(
+        project=project,
+        user=request.user
+    ).exists()
+
+    if not is_member:
+        return Response(
+            {'error': 'You must be a project member to create pull requests'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    serializer = PullRequestCreateSerializer(
+        data=request.data,
+        context={'request': request, 'project_slug': slug}
+    )
+
+    if serializer.is_valid():
+        pull_request = serializer.save()
+        return Response(
+            PullRequestDetailSerializer(pull_request).data,
+            status=status.HTTP_201_CREATED
+        )
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_pull_requests(request, slug):
+    """
+    List all pull requests for a project
+    GET /api/projects/{slug}/pull-requests/
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+    except Project.DoesNotExist:
+        return Response(
+            {'error': 'Project not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user is a project member
+    is_member = UserProjectRole.objects.filter(
+        project=project,
+        user=request.user
+    ).exists()
+
+    if not is_member:
+        return Response(
+            {'error': 'You must be a project member to view pull requests'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    pull_requests = PullRequest.objects.filter(project=project).order_by('-created_at')
+    serializer = PullRequestListSerializer(pull_requests, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_pull_request(request, slug, pr_id):
+    """
+    Get a specific pull request
+    GET /api/projects/{slug}/pull-requests/{pr_id}/
+    """
+    try:
+        project = Project.objects.get(slug=slug)
+        pull_request = PullRequest.objects.get(id=pr_id, project=project)
+    except (Project.DoesNotExist, PullRequest.DoesNotExist):
+        return Response(
+            {'error': 'Project or pull request not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Check if user is a project member
+    is_member = UserProjectRole.objects.filter(
+        project=project,
+        user=request.user
+    ).exists()
+
+    if not is_member:
+        return Response(
+            {'error': 'You must be a project member to view pull requests'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    serializer = PullRequestDetailSerializer(pull_request)
+    return Response(serializer.data, status=status.HTTP_200_OK)

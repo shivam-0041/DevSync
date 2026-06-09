@@ -57,8 +57,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "../components/ui/textarea"
 import { TaskAllocation } from "../components/task-allocation"
 import { CreateTaskModal } from "../components/createtask"
+import { DiscussionsView } from "../components/discussions/DiscussionsView"
 import { fetchProjectData, fetchProjectMembers, uploadFiles, deleteFile, downloadFiles } from "../routes/projects"
 import { useEffect, useState, useMemo, useRef } from "react"
+
+// Helper function to safely format dates
+const formatSafeDate = (dateString: string | undefined | null): string => {
+    if (!dateString) return "unknown"
+    try {
+        const date = new Date(dateString)
+        if (isNaN(date.getTime())) return "unknown"
+        return formatDistanceToNow(date, { addSuffix: true })
+    } catch (error) {
+        return "unknown"
+    }
+}
 
 // Type definitions
 interface FileItemData {
@@ -380,8 +393,12 @@ export default function ProjectPage() {
         if (projectId) {
             setLoading(true);
             fetchProjectData(projectId)
-            .then((data) => {
-                setProject(data);
+            .then((result) => {
+                if (result.success && result.data) {
+                    setProject(result.data);
+                } else {
+                    console.error("Failed to fetch project data:", result.error);
+                }
             })
             .catch((err) => {
                 console.error("Error fetching project data:", err);
@@ -398,7 +415,6 @@ export default function ProjectPage() {
 
     const issues = useMemo(() => (Array.isArray(project.issues) ? project.issues : []), [project.issues])
     const pullRequests = useMemo(() => (Array.isArray(project.pull_requests) ? project.pull_requests : []), [project.pull_requests])
-    const discussions = useMemo(() => (Array.isArray(project.discussions) ? project.discussions : []), [project.discussions])
     const tasks = useMemo(() => (Array.isArray(project.tasks) ? project.tasks : []), [project.tasks])
 
     useEffect(() => {
@@ -898,7 +914,7 @@ export default function ProjectPage() {
                                                 <GitBranch className="h-3.5 w-3.5 mr-1" /> main
                                             </Button>
                                             <Clock className="h-4 w-4 text-zinc-400" />
-                                            <span>{formatDistanceToNow(new Date(project.updated_at), { addSuffix: true })}</span>
+                                            <span>{formatSafeDate(project.updated_at)}</span>
                                         </div>
                                         <div className="flex gap-2">
                                             <DropdownMenu>
@@ -966,7 +982,7 @@ export default function ProjectPage() {
                                                             name={file.name}
                                                             type={file.item_type}
                                                             size={formatFileSize(file.size)}
-                                                            lastUpdated={file.uploaded_at ? formatDistanceToNow(new Date(file.uploaded_at), { addSuffix: true }) : "unknown"}
+                                                            lastUpdated={formatSafeDate(file.uploaded_at)}
                                                             depth={(file as any).depth || 0}
                                                             fileId={file.id}
                                                             isAdmin={isAdmin}
@@ -1029,7 +1045,7 @@ export default function ProjectPage() {
                                             number={issue.id}
                                             status={issue.status}
                                             author={issue.created_by_username || issue.created_by || "unknown"}
-                                            createdAt={formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
+                                            createdAt={formatSafeDate(issue.created_at)}
                                             />
                                         ))}
                                     </div>
@@ -1050,7 +1066,7 @@ export default function ProjectPage() {
                                                 number={pr.id}
                                                 status={pr.status}
                                                 author={pr.created_by || "unknown"}
-                                                createdAt={pr.created_at ? formatDistanceToNow(new Date(pr.created_at), { addSuffix: true }) : "unknown"}
+                                                createdAt={formatSafeDate(pr.created_at)}
                                                 comments={0}
                                             />
                                         ))}
@@ -1058,30 +1074,7 @@ export default function ProjectPage() {
                                 </TabsContent>
 
                                 <TabsContent value="discussions" className="p-4">
-                                    <div className="space-y-4">
-                                        {discussions.length === 0 && (
-                                            <div className="text-center py-10">
-                                                <h3 className="text-lg font-medium mb-2">No discussions yet</h3>
-                                                <p className="text-zinc-500 dark:text-zinc-400">Discussions will appear here when they are created.</p>
-                                            </div>
-                                        )}
-                                        {discussions.map((thread) => (
-                                            <div key={thread.id} className="border border-zinc-200 dark:border-zinc-800 rounded-md p-4">
-                                                <div className="flex items-start justify-between">
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <MessageSquare className="h-4 w-4 text-emerald-500" />
-                                                            <h3 className="font-medium">{thread.title}</h3>
-                                                            <Badge variant="outline">#{thread.id}</Badge>
-                                                        </div>
-                                                        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                                                            Started by @{thread.created_by || "unknown"} {thread.created_at ? formatDistanceToNow(new Date(thread.created_at), { addSuffix: true }) : ""}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <DiscussionsView projectSlug={projectId || ""} />
                                 </TabsContent>
 
                                 <TabsContent value="tasks" className="p-4">
@@ -1112,7 +1105,7 @@ export default function ProjectPage() {
                                                 In Progress
                                             </h4>
                                             <div className="space-y-2">
-                                                {project.tasks
+                                                {tasks
                                                     .filter((task) => task.status === "in_progress")
                                                     .map((task) => (
                                                         <TaskItem key={task.id} task={task} />
@@ -1125,10 +1118,10 @@ export default function ProjectPage() {
                                                 To Do
                                             </h4>
                                             <div className="space-y-2">
-                                                {project.tasks
-                                                    .filter((tasks) => tasks.status === "to_do")
-                                                    .map((tasks) => (
-                                                        <TaskItem key={tasks.id} task={tasks} />
+                                                {tasks
+                                                    .filter((task) => task.status === "to_do")
+                                                    .map((task) => (
+                                                        <TaskItem key={task.id} task={task} />
                                                     ))}
                                             </div>
                                         </div>
@@ -1138,10 +1131,10 @@ export default function ProjectPage() {
                                                 Review
                                             </h4>
                                             <div className="space-y-2">
-                                                {project.tasks
-                                                    .filter((tasks) => tasks.status === "review")
-                                                    .map((tasks) => (
-                                                        <TaskItem key={tasks.id} task={tasks} />
+                                                {tasks
+                                                    .filter((task) => task.status === "review")
+                                                    .map((task) => (
+                                                        <TaskItem key={task.id} task={task} />
                                                     ))}
                                             </div>
                                         </div>
@@ -1247,7 +1240,7 @@ export default function ProjectPage() {
                                             key={activity.id}
                                             user={{ name: activity.user || "Unknown", initials: (activity.user || "?")[0].toUpperCase() }}
                                             action={activity.action || ""}
-                                            time={activity.created_at ? formatDistanceToNow(new Date(activity.created_at), { addSuffix: true }) : "unknown"}
+                                            time={formatSafeDate(activity.created_at)}
                                         />
                                     ))
                                 ) : (
