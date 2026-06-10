@@ -2,6 +2,8 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+
+    #Project endpoints
     path("create/", views.CreateProjectView.as_view(), name="create-project"),
     path("list/", views.ProjectListView.as_view(), name="project-list"),
     path("teammates/", views.get_dashboard_teammates, name="dashboard-teammates"),
@@ -13,9 +15,11 @@ urlpatterns = [
     path("<slug:slug>/delete/", views.ProjectDeleteView.as_view(), name="project-delete"),
     path("<slug:slug>/issues/create/", views.IssueCreateView.as_view(), name="create-issue"),
     path("<slug:slug>/tasks/create/", views.TasksCreateView.as_view(),name="task-create"),
+
+    #Whiteboard endpoints
     path("<slug:slug>/whiteboard/<str:whiteboard_id>/", views.get_whiteboard, name="get_whiteboard"),
-    path("<slug:slug>/whiteboard/<str:whiteboard_id>/update/", views.update_whiteboard, name="update_whiteboard"),
-    path("<slug:slug>/whiteboard/<str:whiteboard_id>/undo/", views.undo_whiteboard, name="undo_whiteboard"),
+    path("<slug:slug>/whiteboard/<str:whiteboard_id>/update", views.update_whiteboard, name="update_whiteboard"),
+    
     
     # File upload endpoint
     path("<slug:slug>/files/upload/", views.upload_files, name="upload-files"),

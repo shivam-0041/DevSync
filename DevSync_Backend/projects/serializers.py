@@ -259,12 +259,20 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
 
     
 
-
 class WhiteboardSerializer(serializers.ModelSerializer):
+    last_modified_by = serializers.CharField(
+        source='last_modified_by.username',
+        read_only=True
+    )
+
     class Meta:
         model = Whiteboard
-        fields = ["id", "repository", "data", "updated_at"]
-        read_only_fields = ["id", "repository", "updated_at"]
+        fields = [
+            'id',
+            'data',
+            'updated_at',
+            'last_modified_by'
+        ]
 
 
 class IssueCreateSerializer(serializers.ModelSerializer):

@@ -6,6 +6,7 @@ from django.utils.text import slugify
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now
+from django.conf import settings
 
 User = get_user_model()
 
@@ -476,4 +477,12 @@ class Whiteboard(models.Model):
     repository = models.OneToOneField('Project', on_delete=models.CASCADE, related_name='whiteboard')
     data = models.JSONField(default=dict)
     updated_at = models.DateTimeField(auto_now=True)
+    last_modified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_whiteboards'
+    )
+    
 

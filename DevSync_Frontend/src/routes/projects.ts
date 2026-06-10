@@ -955,24 +955,51 @@ export async function closeDiscussionThread(slug: string, threadId: number) {
 
 
 
-// export async function fetchWhiteboard(slug, whiteboard_id) {
+export async function fetchWhiteboard(slug, whiteboard_id) {
 
-//     try {
-//         const token = localStorage.getItem("access");
+    try {
+    const token = localStorage.getItem("access");
 
-//         if (!token) {
-//             console.error("No token found in localStorage");
-//             return { success: false };
-//         }
+    if (!token) {
+        console.error("No token found in localStorage");
+        return { success: false };
+    }
 
-//         const response = await axios.get(`${BASE_URL}projects/${slug}/whiteboard/${whiteboard_id}/`, {
-//             headers: {
-//                 Authorization: `Bearer ${token}`,
-//             },
-//         });
-//         return response.data;
-//     } catch (error) {
-//         console.error("Failed to fetch whiteboard data:", error);
-//         throw error;
-//     }
-// };
+    const response = await axios.get(`${BASE_URL}${slug}/whiteboard/${whiteboard_id}/`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            },
+    });
+    console.log(response.data)
+    return response.data;
+    } catch (error) {
+    console.error("Failed to fetch whiteboard data:", error);
+    throw error;
+    }
+};
+
+
+export async function updateWhiteboard(slug, whiteboard_id, data) {
+
+    try {
+        const token = localStorage.getItem("access");
+
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false };
+        }
+
+        const response = await axios.put(`${BASE_URL}${slug}/whiteboard/${whiteboard_id}/update`, data ,{
+            headers: {
+                Authorization: `Bearer ${token}`,
+                },
+        });
+        toast.success("Whiteboard updated successfully!");
+        return response.data;
+    
+    } catch (error) {
+    console.error("Failed to update whiteboard data:", error);
+    toast.error("Failed to save whiteboard");
+    throw error;
+    }
+};

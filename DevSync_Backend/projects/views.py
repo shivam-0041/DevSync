@@ -52,21 +52,6 @@ def _strip_history(payload):
     return cleaned
 
 
-def _build_whiteboard_with_history(whiteboard, incoming_data):
-    current_data = whiteboard.data or {}
-    current_snapshot = _strip_history(current_data) if isinstance(current_data, dict) else {}
-    history = []
-
-    if isinstance(current_data, dict):
-        history = copy.deepcopy(current_data.get("history", []))
-        if current_snapshot and (current_snapshot.get("canvasImageData") or current_snapshot.get("strokes") or current_snapshot.get("shapes")):
-            history = [current_snapshot] + history
-
-    history = history[:2]
-    new_payload = copy.deepcopy(incoming_data)
-    new_payload["history"] = history
-    return new_payload
-
 
 class CreateProjectView(generics.CreateAPIView):
     queryset = Project.objects.all()
@@ -131,51 +116,36 @@ class ProjectDeleteView(generics.DestroyAPIView):
         return Project.objects.filter(created_by=self.request.user)
 
 @api_view(['GET'])
-def get_whiteboard(request, slug, whiteboard_code):
-    project = get_object_or_404(Project, slug=slug, whiteboard_id=whiteboard_code)
+def get_whiteboard(request, slug, whiteboard_id):
+    project = get_object_or_404(Project, slug=slug, whiteboard_id=whiteboard_id)
     whiteboard, _ = Whiteboard.objects.get_or_create(repository=project)
     serializer = WhiteboardSerializer(whiteboard)
     return Response(serializer.data)
 
 
 @api_view(['PUT'])
-def update_whiteboard(request, slug, whiteboard_code):
-    project = get_object_or_404(Project, slug=slug, whiteboard_id=whiteboard_code)
-    whiteboard, _ = Whiteboard.objects.get_or_create(repository=project)
-    incoming_data = _extract_whiteboard_payload(request.data)
-    whiteboard_data = _build_whiteboard_with_history(whiteboard, incoming_data)
-    serializer = WhiteboardSerializer(whiteboard, data={"data": whiteboard_data}, partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+def update_whiteboard(request, slug, whiteboard_id):
+    project = get_object_or_404(
+        Project,
+        slug=slug,
+        whiteboard_id=whiteboard_id
+    )
 
+    whiteboard, _ = Whiteboard.objects.get_or_create(
+        repository=project
+    )
 
-@api_view(['POST'])
-def undo_whiteboard(request, slug, whiteboard_code):
-    project = get_object_or_404(Project, slug=slug, whiteboard_id=whiteboard_code)
-    whiteboard, _ = Whiteboard.objects.get_or_create(repository=project)
-    current_data = whiteboard.data or {}
+    whiteboard.data = _extract_whiteboard_payload(
+        request.data
+    )
 
-    if not isinstance(current_data, dict):
-        return Response({'error': 'Whiteboard data is invalid'}, status=status.HTTP_400_BAD_REQUEST)
+    whiteboard.last_modified_by = request.user
 
-    history = copy.deepcopy(current_data.get('history', []))
-    if not history:
-        return Response({'error': 'No previous snapshot available'}, status=status.HTTP_400_BAD_REQUEST)
+    whiteboard.save()
 
-    previous_state = history[0] or {}
-    if not isinstance(previous_state, dict):
-        return Response({'error': 'Snapshot data is invalid'}, status=status.HTTP_400_BAD_REQUEST)
-
-    previous_state = _strip_history(previous_state)
-    previous_state['history'] = history[1:3]
-
-    serializer = WhiteboardSerializer(whiteboard, data={'data': previous_state}, partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        WhiteboardSerializer(whiteboard).data
+    )
 
 
 class IssueCreateView(generics.CreateAPIView):
