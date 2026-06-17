@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Users } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { TeamMemberList, type TeamMember } from "../components/team-member-list"
@@ -77,9 +77,11 @@ function formatLastActive(lastActivity: string | null) {
 }
 
 export default function DashboardTeamsPage() {
+  const { username } = useParams<{ username: string }>();
   const navigate = useNavigate()
   const { user, isAuthenticated, isLoading } = useAuth()
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [isFetching, setIsFetching] = useState(false)
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !user)) {
@@ -93,8 +95,7 @@ export default function DashboardTeamsPage() {
       return
     }
 
-    const localUser = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user") || "{}") : {}
-
+    setIsFetching(true)
     fetchDashboardTeammates()
       .then((result) => {
         if (!result.success) {
@@ -103,22 +104,13 @@ export default function DashboardTeamsPage() {
         }
 
         const currentUserId = String(user.id || "")
-        const localUserId = String(localUser?.id || "")
-        const excludedUserIds = new Set([currentUserId, localUserId].filter(Boolean))
-
         const currentUsername = String(user.username || "").trim().toLowerCase()
-        const localUsername = String(localUser?.username || "").trim().toLowerCase()
 
         const mappedMembers: TeamMember[] = result.teammates
           .filter((member) => {
             const teammateId = String(member.id)
             const teammateUsername = String(member.username || "").trim().toLowerCase()
-
-            if (excludedUserIds.has(teammateId)) {
-              return false
-            }
-
-            return teammateUsername !== currentUsername && teammateUsername !== localUsername
+            return teammateId !== currentUserId && teammateUsername !== currentUsername
           })
           .map((member) => ({
             id: String(member.id),
@@ -136,6 +128,7 @@ export default function DashboardTeamsPage() {
       .catch(() => {
         setTeamMembers([])
       })
+      .finally(() => setIsFetching(false))
   }, [user?.id, user?.username])
 
   return (
@@ -148,14 +141,18 @@ export default function DashboardTeamsPage() {
             </h1>
             <p className="text-zinc-400 text-sm mt-1">All collaborators across your DevSync projects</p>
           </div>
-          <Link to="/dashboard">
+          <Link to={`/dashboard/${username}`}>
             <Button variant="outline" className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back to Dashboard
             </Button>
           </Link>
         </div>
 
-        <TeamMemberList members={teamMembers} />
+        {isFetching ? (
+          <p className="text-zinc-400 text-sm">Loading team members…</p>
+        ) : (
+          <TeamMemberList members={teamMembers} />
+        )}
       </div>
     </div>
   )

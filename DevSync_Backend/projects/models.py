@@ -54,6 +54,11 @@ class Project(models.Model):
     slug = models.SlugField(unique=True, blank=True)
     logo = models.ImageField(upload_to='project_logos/', blank=True, null=True)
     languages = models.CharField(max_length=200, blank=True, editable=False)
+    starred_by = models.ManyToManyField(
+        User,
+        related_name='starred_projects',
+        blank=True,
+    )
     discussions_enabled = models.BooleanField(default=True)
     stars = models.IntegerField(default=0)
     watchers = models.IntegerField(default=0)
@@ -452,9 +457,20 @@ class ProjectTag(models.Model):
 # ============================
 
 class Notification(models.Model):
+    TYPE_CHOICES = [
+        ('mention', 'Mention'),
+        ('pull_request', 'Pull Request'),
+        ('commit', 'Commit'),
+        ('team', 'Team'),
+        ('task', 'Task'),
+        ('general', 'General'),
+    ]
+
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.CharField(max_length=255, default='')
     message = models.CharField(max_length=255)
+    notification_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='general')
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

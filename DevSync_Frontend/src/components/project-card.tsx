@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link } from "react-router-dom"
 import { ExternalLink, Star, GitBranch, MessageSquare } from "lucide-react"
 import { Avatar, AvatarFallback } from "../components/ui/avatar"
@@ -6,6 +7,7 @@ import { Progress } from "../components/ui/progress"
 import { Card, CardContent, CardFooter } from "../components/ui/card"
 import { Button } from "../components/ui/button"
 import { formatDistanceToNow } from "date-fns"
+import { toggleStarProject } from "../routes/projects"
 
 // Helper function to safely format dates
 const formatSafeDate = (dateString: string | undefined | null): string => {
@@ -21,30 +23,59 @@ const formatSafeDate = (dateString: string | undefined | null): string => {
 
 interface ProjectCardProps {
   project: {
-    project_id: string;      
+    project_id: string;
     name: string;
     description: string;
-    visibility: "private" | "team" | "public"; // enum from model
-    languages: string;          // backend field `languages` (instead of single `language`)
-    branch_count: number;       
+    visibility: "private" | "team" | "public";
+    languages: string;
+    branch_count: number;
     stars: number;
     watchers: number;
     forks: number;
     issues: number;
     pull_requests_count: number;
-    progress: number;           // already exists in model
-    contributors: string[];     // you’ll likely map from `members` (ManyToMany of Users)
-    updated_at: string;         // maps to `updated_at` field
-    created_at: string;         // adding created date (useful for frontend timelines)
-    slug: string;               // project slug for clean URLs
-    logo?: string;              // optional project logo
-    readme?: string | null;     // maps to `readme` field
-    status: "active" | "pending" | "completed"; 
+    progress: number;
+    contributors: string[];
+    updated_at: string;
+    created_at: string;
+    slug: string;
+    logo?: string;
+    readme?: string | null;
+    status: "active" | "pending" | "completed";
+    is_starred?: boolean;
   };
 }
 
 export function ProjectCard({ project }: ProjectCardProps) {
-  const loggedInUser = JSON.parse(localStorage.getItem("user"))
+  const loggedInUser = JSON.parse(localStorage.getItem("user") || "{}") || {}
+
+  // Derive the first language from the `languages` field (comma-separated string or array)
+  const primaryLanguage = (() => {
+    const raw = (project as any).languages
+    if (!raw) return null
+    if (Array.isArray(raw)) return raw[0] || null
+    const parts = String(raw).split(",").map((s) => s.trim()).filter(Boolean)
+    return parts[0] || null
+  })()
+
+  const [isStarred, setIsStarred] = useState<boolean>(project.is_starred ?? false)
+  const [starCount, setStarCount] = useState<number>(project.stars ?? 0)
+  const [starLoading, setStarLoading] = useState(false)
+
+  const handleStarToggle = async () => {
+    if (starLoading) return
+    setStarLoading(true)
+    try {
+      const result = await toggleStarProject(project.slug)
+      if (result) {
+        setIsStarred(result.is_starred)
+        setStarCount(result.stars)
+      }
+    } finally {
+      setStarLoading(false)
+    }
+  }
+
   return (
     <Card className="bg-zinc-900 text-white border-zinc-800 overflow-hidden">
       <CardContent className="p-0">
@@ -61,8 +92,15 @@ export function ProjectCard({ project }: ProjectCardProps) {
                 {project.visibility}
               </Badge>
             </div>
-            <Button variant="ghost" size="icon" className="text-emerald-400 hover:text-emerald-300 hover:bg-zinc-800">
-              <Star className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={starLoading}
+              onClick={handleStarToggle}
+              className={isStarred ? "text-amber-400 hover:text-amber-300 hover:bg-zinc-800" : "text-zinc-500 hover:text-amber-400 hover:bg-zinc-800"}
+              title={isStarred ? "Unstar project" : "Star project"}
+            >
+              <Star className={`h-4 w-4 ${isStarred ? "fill-amber-400" : ""}`} />
             </Button>
           </div>
           <p className="text-sm text-zinc-400 mb-3">{project.description}</p>
@@ -72,28 +110,27 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <Progress value={project.progress} className="h-2 bg-zinc-800" indicatorClassName="bg-emerald-500" />
               <div className="flex justify-between text-xs text-zinc-500">
                 <span>{project.progress}% complete</span>
-                {project.dueDate && <span>Due in {project.dueDate}</span>}
               </div>
             </div>
           )}
 
           <div className="flex items-center gap-3 text-sm text-zinc-500">
             <span className="flex items-center gap-1">
-              <span className='h-3 w-3 rounded-full' style={{ backgroundColor: project.languageColor || "#808080" }}></span>
-              {project.language || "N/A"}
+              <span className='h-3 w-3 rounded-full bg-zinc-500'></span>
+              {primaryLanguage || "N/A"}
             </span>
             <span className="flex items-center gap-1">
               <Star className="h-4 w-4" />
-              {project.stars}
+              {starCount}
             </span>
             <span className="flex items-center gap-1">
               <GitBranch className="h-4 w-4" />
-              {project.branches}
+              {(project as any).branches ?? project.branch_count ?? 0}
             </span>
 
             <span className="flex items-center gap-1">
               <MessageSquare className="h-4 w-4" />
-              {project.comments}
+              {(project as any).comments ?? 0}
             </span>
 
           </div>

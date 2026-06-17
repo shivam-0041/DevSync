@@ -605,19 +605,20 @@ const Dashboard = () => {
             .catch((err: any) => console.error(err));
     }, []);
 
-    useEffect(() => {
-      fetchProjects()
-        .then((data) => {
-          setProjects(data);
-        })
-        .catch((err) => {
-          console.error("Error fetching projects:", err);
-        });
-    }, []);
+  useEffect(() => {
+    fetchProjects()
+      .then((data) => {
+        setProjects(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        console.error("Error fetching projects:", err);
+        setProjects([]);
+      });
+  }, []);
 
 
   const [tasks, setTasks] = useState<DashboardTask[]>([])
-  const { unreadCount, markAllAsRead } = useNotifications()
+  const { unreadCount, markAllAsRead, notifications } = useNotifications()
 
   useEffect(() => {
     if (user?.username) {
@@ -762,36 +763,19 @@ const Dashboard = () => {
                   <DropdownMenuLabel className="text-white">Notifications</DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-zinc-800" />
                   <div className="max-h-[300px] overflow-auto">
-                    <NotificationItem
-                      title="New pull request"
-                      description="Alex Kim requested a review on 'Add product search functionality'"
-                      time="10 minutes ago"
-                      read={false}
-                    />
-                    <NotificationItem
-                      title="Task assigned"
-                      description="Sarah Liu assigned you to 'Fix responsive layout issues'"
-                      time="1 hour ago"
-                      read={false}
-                    />
-                    <NotificationItem
-                      title="Comment on issue #42"
-                      description="Mike Kim commented: 'I've found a solution for this'"
-                      time="3 hours ago"
-                      read={false}
-                    />
-                    <NotificationItem
-                      title="Project invitation"
-                      description="You've been invited to collaborate on 'Data Visualization'"
-                      time="Yesterday"
-                      read={true}
-                    />
-                    <NotificationItem
-                      title="Deployment successful"
-                      description="E-commerce Platform was deployed successfully"
-                      time="2 days ago"
-                      read={true}
-                    />
+                    {notifications.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-zinc-500">No notifications yet.</p>
+                    ) : (
+                      notifications.slice(0, 5).map((notif) => (
+                        <NotificationItem
+                          key={notif.id}
+                          title={notif.title}
+                          description={notif.message}
+                          time={notif.time}
+                          read={notif.read}
+                        />
+                      ))
+                    )}
                   </div>
                   <DropdownMenuSeparator className="bg-zinc-800" />
                   <DropdownMenuItem className="justify-center text-emerald-400 hover:text-emerald-300 hover:bg-zinc-800 cursor-pointer">
@@ -822,7 +806,7 @@ const Dashboard = () => {
             <Card className="bg-zinc-900 border-zinc-800">
               <CardContent className="p-4">
                 <div className="space-y-1">
-                  <Link to="/dashboard" className="flex items-center gap-2 p-2 bg-zinc-800 rounded-md text-white">
+                  <Link to={`/dashboard`} className="flex items-center gap-2 p-2 bg-zinc-800 rounded-md text-white">
                     <Folder className="h-4 w-4" />
                     <span className="text-sm font-medium">My Projects</span>
                   </Link>
@@ -885,16 +869,16 @@ const Dashboard = () => {
 
               <TabsContent value="all" className="space-y-6">
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {projects.map((project, index) => (
-                    <ProjectCard key={index} project={project} />
+                  {(projects as any[]).map((project) => (
+                    <ProjectCard key={project.slug || project.id || project.project_id} project={project} />
                   ))}
                 </div>
               </TabsContent>
 
               <TabsContent value="recent">
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {projects.slice(0, 3).map((project, index) => (
-                    <ProjectCard key={index} project={project} />
+                  {(projects as any[]).slice(0, 3).map((project) => (
+                    <ProjectCard key={project.slug || project.id || project.project_id} project={project} />
                   ))}
                 </div>
               </TabsContent>

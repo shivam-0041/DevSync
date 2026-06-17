@@ -2,7 +2,7 @@
 
 import {Link} from "react-router-dom"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardHeader } from "../components/ui/card"
@@ -31,7 +31,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "../components/contexts/auth-context"
 import { Activity } from "lucide-react" // Import Activity icon
-import { fetchPublicProfile, followUser, unfollowUser, checkIsFollowing, fetchFollowers, fetchFollowing, type SocialConnection } from '../routes/profile';
+import { fetchPublicProfile, followUser, unfollowUser, checkIsFollowing, fetchFollowers, fetchFollowing, fetchUserActivity, type SocialConnection } from '../routes/profile';
 import { fetchPublicProjects } from '../routes/projects';
 
 interface UserProfile {
@@ -235,6 +235,12 @@ export default function ProfilePage() {
 
     const isOwnProfile = currentUser && currentUser.username === username
 
+    const totalContributions = useMemo(() => {
+        const oneYearAgo = new Date()
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+        return activity.filter((act: any) => act.timestamp && new Date(act.timestamp) >= oneYearAgo).length
+    }, [activity])
+
     useEffect(() => {
         const fetchUserData = async () => {
             try {
@@ -247,10 +253,19 @@ export default function ProfilePage() {
                 const reposData = await fetchPublicProjects(username)
                 setRepositories(reposData)
 
-                // TODO: Fetch user's activities when endpoint is available
-                // const activitiesData = await fetchActivities(username)
-                // setActivity(activitiesData)
-                setActivity([]) // Empty for now
+                // Fetch user's activities
+                const activitiesData = await fetchUserActivity(username)
+                const rawActivities = Array.isArray(activitiesData?.activities) ? activitiesData.activities : []
+                const formattedActivities = rawActivities
+                    .filter((act: any) => !act.is_private)
+                    .map((act: any) => ({
+                        id: String(act.id),
+                        type: act.type === "pull-request" ? "pr" : act.type,
+                        repository: act.repo || act.project || "Unknown Repository",
+                        description: act.description,
+                        timestamp: act.timestamp,
+                    }))
+                setActivity(formattedActivities)
 
                 setLoading(false)
             } catch (error) {
@@ -515,24 +530,24 @@ export default function ProfilePage() {
                             <Activity className="h-4 w-4 mr-2" />
                             Activity
                         </TabsTrigger>
-                        <TabsTrigger value="stars" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-black">
-                            <Star className="h-4 w-4 mr-2" />
-                            Stars
+                        <TabsTrigger value="contributions" className="data-[state=active]:bg-emerald-500 data-[state=active]:text-black">
+                            <Calendar className="h-4 w-4 mr-2" />
+                            Contributions
                         </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="repositories" className="mt-6">
                         <div className="grid gap-4">
                             {repositories.map((repo) => (
-                                <Card key={repo.id} className="bg-gray-900 border-gray-800">
+                                <Card key={repo.slug} className="bg-gray-900 border-gray-800">
                                     <CardHeader className="pb-3">
                                         <div className="flex items-start justify-between">
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     <h3 className="text-lg font-semibold text-emerald-400 hover:text-emerald-300">
-                                                        <Link to={`/${username}/${repo.name}`}>{repo.name}</Link>
+                                                        <Link to={`/${username}/project/${repo.slug}`}>{repo.name}</Link>
                                                     </h3>
-                                                    {repo.isPrivate && (
+                                                    {repo.visibility === 'private' && (
                                                         <Badge variant="outline" className="text-xs">
                                                             Private
                                                         </Badge>
@@ -541,8 +556,8 @@ export default function ProfilePage() {
                                                 {repo.description && <p className="text-gray-400 text-sm mb-3">{repo.description}</p>}
                                                 <div className="flex items-center gap-4 text-sm text-gray-400">
                                                     <div className="flex items-center gap-1">
-                                                        <div className={`w-3 h-3 rounded-full ${getLanguageColor(repo.language)}`}></div>
-                                                        {repo.language}
+                                                        <div className={`w-3 h-3 rounded-full ${getLanguageColor(repo.languages)}`}></div>
+                                                        {repo.languages}
                                                     </div>
                                                     <div className="flex items-center gap-1">
                                                         <Star className="h-4 w-4" />
@@ -554,7 +569,7 @@ export default function ProfilePage() {
                                                     </div>
                                                     <div className="flex items-center gap-1">
                                                         <Clock className="h-4 w-4" />
-                                                        Updated {getRelativeTime(repo.updatedAt)}
+                                                        Updated {getRelativeTime(repo.updated_at)}
                                                     </div>
                                                 </div>
                                             </div>
@@ -592,11 +607,15 @@ export default function ProfilePage() {
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="stars" className="mt-6">
-                        <div className="text-center py-16">
-                            <Star className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold mb-2">No starred repositories yet</h3>
-                            <p className="text-gray-400">Starred repositories will appear here.</p>
+                    <TabsContent value="contributions" className="mt-6">
+                        <div className="text-center py-10">
+                            <h3 className="text-lg font-medium mb-2">Contribution Graph</h3>
+                            <p className="text-gray-400 mb-4">
+                                {totalContributions} contributions in the last year
+                            </p>
+                            <div className="bg-gray-900 border border-gray-800 rounded-md p-4">
+                                <ContributionGraph activities={activity} />
+                            </div>
                         </div>
                     </TabsContent>
                 </Tabs>
@@ -665,6 +684,117 @@ export default function ProfilePage() {
                         </Tabs>
                     </DialogContent>
                 </Dialog>
+            </div>
+        </div>
+    )
+}
+
+function ContributionGraph({ activities }: { activities: any[] }) {
+    const { weeks, months } = useMemo(() => {
+        const dateMap: Record<string, number> = {}
+        const oneYearAgo = new Date()
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+
+        activities.forEach((act) => {
+            if (!act.timestamp) return
+            const date = new Date(act.timestamp)
+            if (date >= oneYearAgo) {
+                const key = date.toISOString().split("T")[0]
+                dateMap[key] = (dateMap[key] || 0) + 1
+            }
+        })
+
+        const today = new Date()
+        today.setHours(23, 59, 59, 999)
+
+        const start = new Date(today)
+        start.setDate(start.getDate() - 364)
+        start.setDate(start.getDate() - start.getDay()) // rewind to Sunday
+
+        const weeksData: { date: string; count: number; future: boolean }[][] = []
+        const monthLabels: { label: string; week: number }[] = []
+        const cursor = new Date(start)
+        let lastMonth = -1
+
+        for (let w = 0; w < 53; w++) {
+            const week: { date: string; count: number; future: boolean }[] = []
+            for (let d = 0; d < 7; d++) {
+                const dateStr = cursor.toISOString().split("T")[0]
+                const future = cursor > today
+                week.push({ date: dateStr, count: dateMap[dateStr] || 0, future })
+                const m = cursor.getMonth()
+                if (d === 0 && m !== lastMonth && !future) {
+                    monthLabels.push({
+                        label: cursor.toLocaleDateString("en-US", { month: "short" }),
+                        week: w,
+                    })
+                    lastMonth = m
+                }
+                cursor.setDate(cursor.getDate() + 1)
+            }
+            weeksData.push(week)
+        }
+
+        return { weeks: weeksData, months: monthLabels }
+    }, [activities])
+
+    const getContributionColor = (count: number, future: boolean) => {
+        if (future) return "bg-zinc-900"
+        if (count === 0) return "bg-zinc-800"
+        if (count === 1) return "bg-emerald-900"
+        if (count <= 3) return "bg-emerald-700"
+        if (count <= 6) return "bg-emerald-500"
+        return "bg-emerald-300"
+    }
+
+    const days = ["", "Mon", "", "Wed", "", "Fri", ""]
+
+    return (
+        <div className="overflow-x-auto text-white">
+            <div className="min-w-[800px]">
+                <div className="flex mb-2">
+                    <div className="w-8"></div>
+                    <div className="flex-1 flex justify-between">
+                        {months.map((month, i) => (
+                            <div key={i} className="text-xs text-gray-400">
+                                {month.label}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex">
+                    <div className="w-8 flex flex-col justify-between text-xs text-gray-400">
+                        {days.map((day, i) => (
+                            <div key={i} className="h-3 flex items-center">
+                                {day}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex-1 grid gap-1" style={{ gridTemplateColumns: "repeat(53, minmax(0, 1fr))" }}>
+                        {weeks.map((week, weekIndex) => (
+                            <div key={weekIndex} className="grid grid-rows-7 gap-1">
+                                {week.map((day, dayIndex) => {
+                                    return (
+                                        <div
+                                            key={dayIndex}
+                                            className={`h-3 w-3 rounded-sm ${getContributionColor(day.count, day.future)}`}
+                                            title={day.future ? "" : `${day.date}: ${day.count} contributions`}
+                                        ></div>
+                                    )
+                                })}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex justify-end mt-2 items-center gap-2">
+                    <span className="text-xs text-gray-400">Less</span>
+                    <div className={`h-3 w-3 rounded-sm ${getContributionColor(0, false)}`}></div>
+                    <div className={`h-3 w-3 rounded-sm ${getContributionColor(1, false)}`}></div>
+                    <div className={`h-3 w-3 rounded-sm ${getContributionColor(3, false)}`}></div>
+                    <div className={`h-3 w-3 rounded-sm ${getContributionColor(6, false)}`}></div>
+                    <div className={`h-3 w-3 rounded-sm ${getContributionColor(7, false)}`}></div>
+                    <span className="text-xs text-gray-400">More</span>
+                </div>
             </div>
         </div>
     )

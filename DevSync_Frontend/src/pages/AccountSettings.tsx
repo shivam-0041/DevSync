@@ -53,11 +53,11 @@ export default function AccountSettings() {
 
                 setProfileImage(isInvalidAvatar ? "/def-avatar.svg" : avatar);
 
-                
+
                 const { socialLinks = {}, skills = [], ...rest } = data;
 
                 //console.log("Profile data loaded:", data);
-                setFormData(prev =>({
+                setFormData(prev => ({
                     ...prev,
                     ...data,
                     ...socialLinks,
@@ -123,18 +123,18 @@ export default function AccountSettings() {
     };
 
     const handleSave = (e: React.FormEvent) => {
-        
+
         if (activeTab === "profile") {
             handleProfileUpdate(e);
-        } else if (activeTab === "security") {        
+        } else if (activeTab === "security") {
             updateUserPassword(passwordData);
         } else if (activeTab === "notifications") {
             //handleNotificationUpdate(e);
         } else if (activeTab === "integrations") {
             //handleIntegrationUpdate(e);
         }
-};
-    
+    };
+
 
 
     const handleProfileUpdate = async (e: React.FormEvent) => {
@@ -159,14 +159,14 @@ export default function AccountSettings() {
         if (formData.skills?.length > 0) {
             form.append("skills", JSON.stringify({ skill: formData.skills }));
         }
-        
+
         if (formData.github) form.append("github", formData.github);
         if (formData.linkedin) form.append("linkedin", formData.linkedin);
         if (formData.twitter) form.append("twitter", formData.twitter);
         if (formData.personal_website) form.append("personal_website", formData.personal_website);
 
 
-        
+
 
         const result = await updateUserProfile(form);
 
@@ -175,7 +175,7 @@ export default function AccountSettings() {
             setTimeout(() => setSaveStatus("idle"), 2000);
         } else {
             setSaveStatus("idle");
-            
+
         }
     };
     const navigate = useNavigate();
@@ -195,13 +195,13 @@ export default function AccountSettings() {
         current_password: string;
         new_password: string;
         confirm_password: string;
-        }>({
+    }>({
         current_password: "",
         new_password: "",
         confirm_password: "",
     });
 
-    
+
 
     return (
         <div className="min-h-screen bg-zinc-950">
@@ -281,7 +281,7 @@ export default function AccountSettings() {
                                         <div className="flex flex-col items-center gap-4">
                                             <Avatar className="h-32 w-32">
                                                 <AvatarImage src={profileImage} alt="User" />
-                                                </Avatar>
+                                            </Avatar>
                                             <div className="flex gap-2">
                                                 <label htmlFor="avatar">
                                                     <Button variant="outline" size="sm" className="cursor-pointer" asChild>
@@ -295,7 +295,7 @@ export default function AccountSettings() {
                                                         onChange={handleImageChange}
                                                     />
                                                 </label>
-                                                <Button variant="outline" size="sm"  className="text-red-500 hover:text-red-400" onClick={handleRemoveAvatar}>
+                                                <Button variant="outline" size="sm" className="text-red-500 hover:text-red-400" onClick={handleRemoveAvatar}>
                                                     Remove
                                                 </Button>
                                             </div>

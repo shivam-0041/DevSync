@@ -1,5 +1,6 @@
 import {Link, useParams, useNavigate} from "react-router-dom"
 import { formatDistanceToNow } from "date-fns"
+import { toast } from "sonner"
 import {
     Code,
     GitBranch,
@@ -58,7 +59,7 @@ import { Textarea } from "../components/ui/textarea"
 import { TaskAllocation } from "../components/task-allocation"
 import { CreateTaskModal } from "../components/createtask"
 import { DiscussionsView } from "../components/discussions/DiscussionsView"
-import { fetchProjectData, fetchProjectMembers, uploadFiles, deleteFile, downloadFiles } from "../routes/projects"
+import { fetchProjectData, fetchProjectMembers, uploadFiles, deleteFile, downloadFiles, toggleStarProject } from "../routes/projects"
 import { useEffect, useState, useMemo, useRef } from "react"
 
 // Helper function to safely format dates
@@ -192,6 +193,7 @@ export default function ProjectPage() {
         files: [],
         activities: [],
         languages: [],
+        is_starred: false,
   });
 
     // File upload refs
@@ -327,6 +329,26 @@ export default function ProjectPage() {
         } catch (error) {
             toast.error("Download failed");
             console.error("Download error:", error);
+        }
+    };
+
+    // Handle toggle star
+    const handleToggleStar = async () => {
+        try {
+            const result = await toggleStarProject(project.slug);
+            if (result) {
+                setProject((prev: any) => ({
+                    ...prev,
+                    is_starred: result.is_starred,
+                    stars: result.stars,
+                }));
+                toast.success(result.is_starred ? "Starred project" : "Unstarred project");
+            } else {
+                toast.error("Failed to toggle star");
+            }
+        } catch (error) {
+            toast.error("Error toggling star");
+            console.error(error);
         }
     };
 
@@ -635,12 +657,23 @@ export default function ProjectPage() {
                                 <h1 className="text-2xl font-bold">{project.name}</h1>
                                 <p className="text-zinc-600 dark:text-zinc-400 mt-1">{project.description}</p>
                             </div>
-                            <div className="flex gap-2">
+                             <div className="flex gap-2">
                                 <Button variant="outline" size="sm">
                                     <Eye className="h-4 w-4 mr-1" /> Watch
                                 </Button>
-                                <Button variant="outline" size="sm">
-                                    <Star className="h-4 w-4 mr-1" /> Star
+                                <Link to={`/${project.created_by?.username}/project/${project.slug}/collaborate`}>
+                                    <Button variant="outline" size="sm" className="border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:border-emerald-800 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                        <MessageSquare className="h-4 w-4 mr-1 text-emerald-600 dark:text-emerald-400" /> Chat
+                                    </Button>
+                                </Link>
+                                <Button 
+                                    variant={project.is_starred ? "default" : "outline"} 
+                                    size="sm"
+                                    onClick={handleToggleStar}
+                                    className={project.is_starred ? "bg-emerald-500 text-white hover:bg-emerald-600 border-emerald-500" : ""}
+                                >
+                                    <Star className={`h-4 w-4 mr-1 ${project.is_starred ? "fill-white" : ""}`} /> 
+                                    {project.is_starred ? "Starred" : "Star"} ({project.stars || 0})
                                 </Button>
                                 <Button variant="outline" size="sm">
                                     <GitBranch className="h-4 w-4 mr-1" /> Fork

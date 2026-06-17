@@ -192,6 +192,32 @@ export async function fetchProjectData(projectId: string) {
 };
 
 /**
+ * Fetch public project detail — no authentication required.
+ * Works for public repos only; private repos return 404.
+ * Optionally attaches the auth token if the user is logged in,
+ * so the `is_starred` field is populated correctly.
+ */
+export async function fetchPublicProjectDetail(username: string, slug: string) {
+    try {
+        const token = localStorage.getItem("access");
+        const headers: Record<string, string> = {};
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+        }
+        const response = await axios.get(`${BASE_URL}view/${username}/${slug}/`, { headers });
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        const httpStatus = error.response?.status;
+        return {
+            success: false,
+            data: null,
+            status: httpStatus,
+            error: error.response?.data?.detail || error.message || "Unknown error",
+        };
+    }
+}
+
+/**
  * Fetches code files for a project
  * Returns hierarchical nested folder/file tree with metadata
  * data includes: id, name, item_type, file_url, size, uploaded_at, uploaded_by, branch, children
@@ -1003,3 +1029,80 @@ export async function updateWhiteboard(slug, whiteboard_id, data) {
     throw error;
     }
 };
+
+// ============================
+// Star / Unstar
+// ============================
+
+export async function toggleStarProject(slug: string): Promise<{ is_starred: boolean; stars: number } | null> {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) {
+            console.error("No token found in localStorage");
+            return null;
+        }
+        const response = await axios.post(`${BASE_URL}${slug}/star/`, {}, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        return response.data;
+    } catch (error) {
+        console.error("Failed to toggle star:", error);
+        return null;
+    }
+}
+
+// ============================
+// Notifications
+// ============================
+
+export interface BackendNotification {
+    id: number;
+    type: "mention" | "pull_request" | "commit" | "team" | "task" | "general";
+    title: string;
+    message: string;
+    project: string | null;
+    read: boolean;
+    time: string;
+}
+
+export async function fetchNotifications(): Promise<BackendNotification[]> {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) return [];
+        const response = await axios.get<BackendNotification[]>(`${BASE_URL}notifications/`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+        console.error("Failed to fetch notifications:", error);
+        return [];
+    }
+}
+
+export async function markNotificationRead(notificationId: number): Promise<boolean> {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) return false;
+        await axios.post(`${BASE_URL}notifications/${notificationId}/read/`, {}, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        return true;
+    } catch (error) {
+        console.error("Failed to mark notification as read:", error);
+        return false;
+    }
+}
+
+export async function markAllNotificationsRead(): Promise<boolean> {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) return false;
+        await axios.post(`${BASE_URL}notifications/read-all/`, {}, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        return true;
+    } catch (error) {
+        console.error("Failed to mark all notifications as read:", error);
+        return false;
+    }
+}

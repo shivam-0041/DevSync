@@ -19,7 +19,7 @@ export async function getCsrfToken() {
 export const fetchUserProfile = async () => {
     try {
 
-        const token = localStorage.getItem("access"); 
+        const token = localStorage.getItem("access");
 
         if (!token) {
             console.error('No token found in localStorage');
@@ -30,7 +30,7 @@ export const fetchUserProfile = async () => {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
-                
+
             },
             //withCredentials: true  // if you're using session authentication or CSRF
         });
@@ -67,8 +67,8 @@ export const updateUserProfile = async (formData) => {
             console.error("No token found in localStorage");
             return { success: false };
         }
-        
-        
+
+
         const response = await axios.put(`${BASE_URL}profile/settings/`, formData, {
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -92,8 +92,8 @@ export const updateUserPassword = async (formData) => {
             console.error("No token found in localStorage");
             return { success: false };
         }
-        
-        
+
+
         const response = await axios.post(`${BASE_URL}profile/password-update/`, formData, {
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -221,6 +221,37 @@ export const fetchFollowing = async (username: string): Promise<SocialConnection
     } catch (error: any) {
         console.error("Failed to fetch following:", error.response?.data || error.message);
         toast.error("Failed to load following list");
+        return [];
+    }
+};
+
+export const fetchUserActivity = async (username: string) => {
+    try {
+        const token = localStorage.getItem("access");
+        const config = token ? {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        } : {};
+        const response = await axios.get(`${BASE_URL}users/${username}/activity/`, config);
+        return response.data;
+    } catch (error: any) {
+        console.error("Failed to fetch user activity:", error.response?.data || error.message);
+        return { activities: [] };
+    }
+};
+
+export const fetchPublicUserProjects = async (username: string) => {
+    try {
+        const response = await axios.get(`http://localhost:8000/api/projects/public/${username}/`, {
+            headers: {
+                "Content-Type": "application/json",
+            },
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error("Failed to fetch public user projects:", error.response?.data || error.message);
         return [];
     }
 };

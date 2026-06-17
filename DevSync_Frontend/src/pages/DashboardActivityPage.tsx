@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { Activity, ArrowLeft } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button"
@@ -76,6 +76,7 @@ function ActivityItem({ activity }: { activity: ActivityFeedItem }) {
 }
 
 export default function DashboardActivityPage() {
+  const { username } = useParams<{ username: string }>();
   const navigate = useNavigate()
   const { user, isAuthenticated, isLoading } = useAuth()
   const [projects, setProjects] = useState<any[]>([])
@@ -144,7 +145,7 @@ export default function DashboardActivityPage() {
             </h1>
             <p className="text-zinc-400 text-sm mt-1">All recent activity from your projects</p>
           </div>
-          <Link to="/dashboard">
+          <Link to={`/dashboard/${username}`}>
             <Button variant="outline" className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800">
               <ArrowLeft className="h-4 w-4 mr-2" /> Back to Dashboard
             </Button>

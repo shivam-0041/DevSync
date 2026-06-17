@@ -36,64 +36,67 @@ const Notifications = lazy(() => import('./pages/Notifications'));
 const NewPullRequest = lazy(() => import('./pages/NewPullReq'));
 const PublicProfile = lazy(() => import('./pages/PublicProfile'));
 const IssuePage = lazy(() => import('./pages/IssuePage'));
+const PublicProjectPage = lazy(() => import('./pages/PublicProjectPage'));
 
 function App() {
     return (
-    <>
-    {/*<Suspense fallback={<div>Loading...</div>}>*/}
-    <Toaster position="top-right" />
-        <Routes>
-                
-            <Route path="/" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            {/*<Route path="/verify-code" element={<VerifyEmailPage />} />*/}
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/features" element={<FeaturesPage />} />
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="/workflow" element={<WorkflowPage />} />
-            <Route path="/how-it-works" element={<HowItWorksPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/explore" element={<ExplorePage />} />
-            <Route path="/user" element={<UserProfile />} />
-            <Route path="/p/:username" element={<PublicProfile />} />
-            <Route path="/settings" element={<ProjectSettings />} />
-            <Route path="/manage-collaborators" element={<ManageCollaborators />} />
+        <>
+            {/*<Suspense fallback={<div>Loading...</div>}>*/}
+            <Toaster position="top-right" />
+            <Routes>
 
-            {/* New routes - dashboard sub-pages */}
-            <Route path="/dashboard/explore" element={<ExplorePage />} />
-            <Route path="/dashboard/starred" element={<DashboardStarredPage />} />
-            <Route path="/dashboard/teams" element={<DashboardTeamsPage />} />
-            <Route path="/dashboard/activity" element={<DashboardActivityPage />} />
-
-            {/* New routes - auth aliases */}
-            <Route path="/signin" element={<LoginPage />} />
-            <Route path="/signup" element={<RegisterPage />} />
-
-            {/* New routes - additional pages */}
-            <Route path="/import-repository" element={<NewRepo />} />
-
-            <Route element={<AuthGuard/>}>
-                <Route path="/dashboard/:username" element={ <Dashboard /> } />
-                <Route path="/:username/new-repo" element={ <NewRepo /> } />       
-                <Route path="/:username/project/:slug/issues/new" element={<NewIssue />} />
+                <Route path="/" element={<HomePage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                {/*<Route path="/verify-code" element={<VerifyEmailPage />} />*/}
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/features" element={<FeaturesPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/workflow" element={<WorkflowPage />} />
+                <Route path="/how-it-works" element={<HowItWorksPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/explore" element={<ExplorePage />} />
+                {/* <Route path="/user" element={<UserProfile />} /> */}
+                <Route path="/p/:username" element={<PublicProfile />} />
+                {/* Public project view — accessible by anyone, logged in or not */}
+                <Route path="/:username/project/:slug/view" element={<PublicProjectPage />} />
                 <Route path="/issue/:issueId" element={<IssuePage />} />
-                <Route path="/:username/project/:slug/pull-request" element={<NewPullRequest />} />
-                <Route path="/:username/notifications" element={<Notifications />} />
-                <Route path="/:username/project/:id" element={<ProjectPage />} />
-                <Route path="/:username/project/:slug/whiteboard/:whiteboard_id" element={<WhiteboardPage />} />
-                <Route path="/profile/:username" element={<ProfilePage />} />      
-                <Route path="/:username/project/:slug/collaborate" element={<CollaboratePage />} />
-                <Route path="/:username/account/settings" element={<AccountSettings />} />
-                <Route path="/:username/project/:slug/settings" element={<ProjectSettings />} />
-                <Route path="/:username/project/:slug/manage-collaborators" element={<ManageCollaborators />} />
-            </Route>
-                    
-        </Routes>
-    {/*</Suspense>*/}
-    </>
+                <Route path="/settings" element={<ProjectSettings />} />
+                <Route path="/manage-collaborators" element={<ManageCollaborators />} />
+
+                {/* New routes - dashboard sub-pages */}
+                <Route path="/dashboard/explore" element={<ExplorePage />} />
+                <Route path="/dashboard/starred" element={<DashboardStarredPage />} />
+                <Route path="/dashboard/teams" element={<DashboardTeamsPage />} />
+                <Route path="/dashboard/activity" element={<DashboardActivityPage />} />
+
+                {/* New routes - auth aliases */}
+                <Route path="/signin" element={<LoginPage />} />
+                <Route path="/signup" element={<RegisterPage />} />
+
+                {/* New routes - additional pages */}
+                <Route path="/import-repository" element={<NewRepo />} />
+
+                <Route element={<AuthGuard />}>
+                    <Route path="/dashboard/:username" element={<Dashboard />} />
+                    <Route path="/:username/new-repo" element={<NewRepo />} />
+                    <Route path="/:username/project/:slug/issues/new" element={<NewIssue />} />
+                    <Route path="/:username/project/:slug/pull-request" element={<NewPullRequest />} />
+                    <Route path="/:username/notifications" element={<Notifications />} />
+                    <Route path="/:username/project/:id" element={<ProjectPage />} />
+                    <Route path="/:username/project/:slug/whiteboard/:whiteboard_id" element={<WhiteboardPage />} />
+                    <Route path="/profile/:username" element={<ProfilePage />} />
+                    <Route path="/:username/project/:slug/collaborate" element={<CollaboratePage />} />
+                    <Route path="/:username/account/settings" element={<AccountSettings />} />
+                    <Route path="/:username/project/:slug/settings" element={<ProjectSettings />} />
+                    <Route path="/:username/project/:slug/manage-collaborators" element={<ManageCollaborators />} />
+                </Route>
+
+            </Routes>
+            {/*</Suspense>*/}
+        </>
     );
 }
 

@@ -1,4 +1,4 @@
-﻿from rest_framework import generics, permissions
+from rest_framework import generics, permissions
 from .models import Profile
 from .serializers import ProfileSerializer
 from django.contrib.auth import get_user_model
@@ -269,3 +269,112 @@ def following_list(request, username):
     ]
 
     return Response({'count': len(data), 'results': data}, status=status.HTTP_200_OK)
+
+
+class UserActivityListView(APIView):
+    permission_classes = []  # Publicly visible activity list
+
+    def get(self, request, username):
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=404)
+
+        from projects.models import Project, Issue, PullRequest, ProjectTask
+        
+        # 1. Projects created by this user
+        projects = Project.objects.filter(created_by=user).select_related('created_by')
+        # 2. Pull requests created by this user
+        pull_requests = PullRequest.objects.filter(created_by=user).select_related('project', 'project__created_by')
+        # 3. Issues created by this user
+        issues = Issue.objects.filter(created_by=user).select_related('project', 'project__created_by')
+        # 4. Tasks assigned to this user
+        tasks = ProjectTask.objects.filter(assign_to=user).select_related('project', 'project__created_by')
+        # 5. Starred projects
+        starred = user.starred_projects.all().select_related('created_by')
+
+        activities = []
+        
+        for p in projects:
+            activities.append({
+                'id': f"proj-{p.id}",
+                'type': 'commit',
+                'action': f"Created repository {p.name}",
+                'description': f"Created repository {p.name}",
+                'timestamp': p.created_at.isoformat(),
+                'time': p.created_at.isoformat(),
+                'repo': p.name,
+                'project': p.name,
+                'project_slug': p.slug,
+                'project_owner': p.created_by.username,
+                'is_private': p.visibility == 'private',
+                'extra_data': {}
+            })
+
+        for pr in pull_requests:
+            activities.append({
+                'id': f"pr-{pr.id}",
+                'type': 'pull-request',
+                'action': f"Opened pull request: {pr.message}",
+                'description': f"Opened pull request: {pr.message}",
+                'timestamp': pr.created_at.isoformat(),
+                'time': pr.created_at.isoformat(),
+                'repo': pr.project.name,
+                'project': pr.project.name,
+                'project_slug': pr.project.slug,
+                'project_owner': pr.project.created_by.username,
+                'is_private': pr.project.visibility == 'private',
+                'extra_data': {}
+            })
+
+        for issue in issues:
+            activities.append({
+                'id': f"issue-{issue.id}",
+                'type': 'issue',
+                'action': f"Opened issue: {issue.title}",
+                'description': f"Opened issue: {issue.title}",
+                'timestamp': issue.created_at.isoformat(),
+                'time': issue.created_at.isoformat(),
+                'repo': issue.project.name,
+                'project': issue.project.name,
+                'project_slug': issue.project.slug,
+                'project_owner': issue.project.created_by.username,
+                'is_private': issue.project.visibility == 'private',
+                'extra_data': {}
+            })
+
+        for task in tasks:
+            activities.append({
+                'id': f"task-{task.id}",
+                'type': 'task',
+                'action': f"Assigned task: {task.title}",
+                'description': f"Assigned task: {task.title}",
+                'timestamp': task.created_at.isoformat(),
+                'time': task.created_at.isoformat(),
+                'repo': task.project.name,
+                'project': task.project.name,
+                'project_slug': task.project.slug,
+                'project_owner': task.project.created_by.username,
+                'is_private': task.project.visibility == 'private',
+                'extra_data': {}
+            })
+
+        for sp in starred:
+            activities.append({
+                'id': f"star-{sp.id}",
+                'type': 'star',
+                'action': f"Starred repository {sp.name}",
+                'description': f"Starred repository {sp.name}",
+                'timestamp': sp.updated_at.isoformat(),
+                'time': sp.updated_at.isoformat(),
+                'repo': sp.name,
+                'project': sp.name,
+                'project_slug': sp.slug,
+                'project_owner': sp.created_by.username,
+                'is_private': sp.visibility == 'private',
+                'extra_data': {}
+            })
+
+        activities.sort(key=lambda x: x['timestamp'], reverse=True)
+
+        return Response({"activities": activities}, status=200)

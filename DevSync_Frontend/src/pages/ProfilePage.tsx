@@ -1,4 +1,4 @@
-import { Link, useParams, useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import {
   Code,
   Settings,
@@ -16,6 +16,9 @@ import {
   Folder,
   Users,
   PenSquare,
+  GitCommit,
+  GitPullRequest,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "../components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
@@ -29,9 +32,9 @@ import {
   DialogTitle,
 } from "../components/ui/dialog"
 import { getBrandHomePath } from "../lib/brand-link"
-import { fetchUserProfile, fetchFollowers, fetchFollowing, type SocialConnection } from '../routes/profile';
+import { fetchUserProfile, fetchFollowers, fetchFollowing, fetchUserActivity, type SocialConnection } from '../routes/profile';
 import { fetchProjects } from '../routes/projects';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 const getLanguageColor = (language: string) => {
     const colors: { [key: string]: string } = {
@@ -51,18 +54,23 @@ const getLanguageColor = (language: string) => {
 
 export default function ProfilePage() {
 
-    const navigate = useNavigate();
-    const { username } = useParams();
     const [profileImage, setProfileImage] = useState<string>("/def-avatar.svg")
     //const loggedInUser = JSON.parse(localStorage.getItem("username"));
 
-    const [user, setUser] = useState({});
-    const [repositories, setRepositories] = useState([]);
+    const [user, setUser] = useState<any>({});
+    const [repositories, setRepositories] = useState<any[]>([]);
     const [isConnectionsOpen, setIsConnectionsOpen] = useState(false)
     const [activeConnectionsTab, setActiveConnectionsTab] = useState<"followers" | "following">("followers")
     const [followersList, setFollowersList] = useState<SocialConnection[]>([])
     const [followingList, setFollowingList] = useState<SocialConnection[]>([])
     const [isConnectionsLoading, setIsConnectionsLoading] = useState(false)
+    const [activities, setActivities] = useState<any[]>([])
+
+    const totalContributions = useMemo(() => {
+        const oneYearAgo = new Date()
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+        return activities.filter((act: any) => act.timestamp && new Date(act.timestamp) >= oneYearAgo).length
+    }, [activities])
     // Fetch user profile data from the backend
     useEffect(() => {
         const fetchData = async () => {
@@ -106,7 +114,7 @@ export default function ProfilePage() {
 
                 // Fetch repositories
                 const projectsData = await fetchProjects();
-                const formattedRepos = projectsData.map(repo => ({
+                const formattedRepos = projectsData.map((repo: any) => ({
                     name: repo.name,
                     description: repo.description,
                     language: repo.languages || "Unknown",
@@ -120,10 +128,16 @@ export default function ProfilePage() {
                 setRepositories(formattedRepos);
 
                 // Update user repositories count
-                setUser(prevUser => ({
+                setUser((prevUser: any) => ({
                     ...prevUser,
                     repositories: formattedRepos.length,
                 }));
+
+                // Fetch activities
+                if (profileData?.username) {
+                    const activityData = await fetchUserActivity(profileData.username);
+                    setActivities(Array.isArray(activityData?.activities) ? activityData.activities : []);
+                }
 
             } catch (err) {
                 console.error(err);
@@ -222,40 +236,6 @@ export default function ProfilePage() {
   //   },
   // ]
 
-  // Sample activity data
-  const activities = [
-    {
-      type: "commit",
-      repo: "E-commerce Platform",
-      description: "Added product search functionality",
-      time: "2 days ago",
-    },
-    {
-      type: "pull-request",
-      repo: "React Component Library",
-      description: "Implemented dark mode for all components",
-      time: "4 days ago",
-    },
-    {
-      type: "issue",
-      repo: "AI Image Generator",
-      description: "Fixed memory leak in image processing",
-      time: "1 week ago",
-    },
-    {
-      type: "star",
-      repo: "Next.js",
-      description: "Starred vercel/next.js",
-      time: "1 week ago",
-    },
-    {
-      type: "fork",
-      repo: "TypeScript",
-      description: "Forked microsoft/typescript",
-      time: "2 weeks ago",
-    },
-  ]
-
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <header className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10">
@@ -315,7 +295,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <LinkIcon className="h-4 w-4 text-zinc-500" />
-                  <a to={user.website} className="text-sm text-emerald-500 hover:underline">
+                  <a href={user.website} className="text-sm text-emerald-500 hover:underline">
                     {user.website}
                   </a>
                 </div>
@@ -379,7 +359,7 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="flex flex-wrap gap-2">
-                    {Array.isArray(user.skills) && user.skills.map((skill, index) => (
+                    {Array.isArray(user.skills) && user.skills.map((skill: string, index: number) => (
                         <Badge key={index} variant="secondary" className="bg-zinc-100 dark:bg-zinc-800">
                             {skill}
                         </Badge>
@@ -419,9 +399,11 @@ export default function ProfilePage() {
                   </button>
                 </div>
                 <div>
-                  <Button variant="outline" size="sm">
-                    <PenSquare className="h-4 w-4 mr-1" /> Create Repository
-                  </Button>
+                  <Link to={`/${user.username}/new-repo`}>
+                    <Button variant="outline" size="sm">
+                      <PenSquare className="h-4 w-4 mr-1" /> Create Repository
+                    </Button>
+                  </Link>
                 </div>
               </div>
 
@@ -461,7 +443,7 @@ export default function ProfilePage() {
 
                   <div className="space-y-4">
                     {repositories.map((repo, index) => (
-                      <RepositoryItem key={index} repo={repo} />
+                      <RepositoryItem key={index} repo={repo} username={user.username} />
                     ))}
                   </div>
                 </TabsContent>
@@ -478,10 +460,10 @@ export default function ProfilePage() {
                   <div className="text-center py-10">
                     <h3 className="text-lg font-medium mb-2">Contribution Graph</h3>
                     <p className="text-zinc-500 dark:text-zinc-400 mb-4">
-                      {user.contributions} contributions in the last year
+                      {totalContributions} contributions in the last year
                     </p>
                     <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-md p-4">
-                      <ContributionGraph />
+                      <ContributionGraph activities={activities} />
                     </div>
                   </div>
                 </TabsContent>
@@ -563,14 +545,14 @@ export default function ProfilePage() {
   )
 }
 
-function RepositoryItem({ repo }) {
+function RepositoryItem({ repo, username }: { repo: any; username: string }) {
   return (
     <div className="border-b border-zinc-200 dark:border-zinc-800 pb-4 last:border-0 last:pb-0">
       <div className="flex justify-between items-start">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="font-medium text-emerald-500 hover:underline">
-              <Link to={`/project/${repo.slug}`}>{repo.name}</Link>
+              <Link to={`/${username}/project/${repo.slug}`}>{repo.name}</Link>
             </h3>
             {repo.isPrivate && (
               <Badge variant="outline" className="text-xs">
@@ -603,8 +585,27 @@ function RepositoryItem({ repo }) {
   )
 }
 
-function ActivityItem({ activity }) {
-  const getActivityIcon = (type) => {
+function formatRelativeTime(iso: string): string {
+  if (!iso) return ""
+  try {
+    const date = new Date(iso)
+    if (isNaN(date.getTime())) return ""
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+    if (seconds < 60) return "just now"
+    const minutes = Math.floor(seconds / 60)
+    if (minutes < 60) return `${minutes}m ago`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.floor(hours / 24)
+    if (days < 30) return `${days}d ago`
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  } catch {
+    return ""
+  }
+}
+
+function ActivityItem({ activity }: { activity: any }) {
+  const getActivityIcon = (type: string) => {
     switch (type) {
       case "commit":
         return <GitCommit className="h-5 w-5 text-emerald-500" />
@@ -626,105 +627,141 @@ function ActivityItem({ activity }) {
       <div className="mt-1">{getActivityIcon(activity.type)}</div>
       <div>
         <p className="text-sm">
-          <span className="font-medium">{activity.repo}</span>: {activity.description}
+          <span className="font-medium text-zinc-900 dark:text-zinc-100">{activity.repo}</span>: {activity.description}
         </p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{activity.time}</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+          {formatRelativeTime(activity.timestamp)}
+        </p>
       </div>
     </div>
   )
 }
 
-function ContributionGraph() {
-  // This is a simplified version of a contribution graph
-  // In a real app, you would use actual contribution data
+interface ActivityItemType {
+    id: string
+    type: string
+    action: string
+    description: string
+    timestamp: string
+    repo: string
+    project: string
+    project_slug: string
+    project_owner: string
+}
 
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-  const weeks = Array.from({ length: 52 }, (_, i) => i)
-  const days = ["", "Mon", "", "Wed", "", "Fri", ""]
+function ContributionGraph({ activities }: { activities: ActivityItemType[] }) {
+    const { weeks, months } = useMemo(() => {
+        const dateMap: Record<string, number> = {}
+        const oneYearAgo = new Date()
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
 
-  // Generate random contribution data
-  const getContributionLevel = () => {
-    const random = Math.random()
-    if (random < 0.6) return 0 // No contributions (60% chance)
-    if (random < 0.8) return 1 // Light (20% chance)
-    if (random < 0.9) return 2 // Medium (10% chance)
-    if (random < 0.97) return 3 // High (7% chance)
-    return 4 // Very high (3% chance)
-  }
+        activities.forEach((act) => {
+            if (!act.timestamp) return
+            const date = new Date(act.timestamp)
+            if (date >= oneYearAgo) {
+                const key = date.toISOString().split("T")[0]
+                dateMap[key] = (dateMap[key] || 0) + 1
+            }
+        })
 
-  const contributionLevels = Array.from({ length: 52 * 7 }, () => getContributionLevel())
+        const today = new Date()
+        today.setHours(23, 59, 59, 999)
 
-  const getContributionColor = (level) => {
-    switch (level) {
-      case 0:
-        return "bg-zinc-100 dark:bg-zinc-700"
-      case 1:
-        return "bg-emerald-100 dark:bg-emerald-900"
-      case 2:
-        return "bg-emerald-300 dark:bg-emerald-700"
-      case 3:
-        return "bg-emerald-500 dark:bg-emerald-500"
-      case 4:
+        const start = new Date(today)
+        start.setDate(start.getDate() - 364)
+        start.setDate(start.getDate() - start.getDay()) // rewind to Sunday
+
+        const weeksData: { date: string; count: number; future: boolean }[][] = []
+        const monthLabels: { label: string; week: number }[] = []
+        const cursor = new Date(start)
+        let lastMonth = -1
+
+        for (let w = 0; w < 53; w++) {
+            const week: { date: string; count: number; future: boolean }[] = []
+            for (let d = 0; d < 7; d++) {
+                const dateStr = cursor.toISOString().split("T")[0]
+                const future = cursor > today
+                week.push({ date: dateStr, count: dateMap[dateStr] || 0, future })
+                const m = cursor.getMonth()
+                if (d === 0 && m !== lastMonth && !future) {
+                    monthLabels.push({
+                        label: cursor.toLocaleDateString("en-US", { month: "short" }),
+                        week: w,
+                    })
+                    lastMonth = m
+                }
+                cursor.setDate(cursor.getDate() + 1)
+            }
+            weeksData.push(week)
+        }
+
+        const total = Object.values(dateMap).reduce((s, c) => s + c, 0)
+        return { weeks: weeksData, months: monthLabels, totalContributions: total }
+    }, [activities])
+
+    const getContributionColor = (count: number, future: boolean) => {
+        if (future) return "bg-zinc-100 dark:bg-zinc-900"
+        if (count === 0) return "bg-zinc-100 dark:bg-zinc-800"
+        if (count === 1) return "bg-emerald-100 dark:bg-emerald-900"
+        if (count <= 3) return "bg-emerald-300 dark:bg-emerald-700"
+        if (count <= 6) return "bg-emerald-500 dark:bg-emerald-500"
         return "bg-emerald-700 dark:bg-emerald-300"
-      default:
-        return "bg-zinc-100 dark:bg-zinc-700"
     }
-  }
 
-  return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[800px]">
-        <div className="flex mb-2">
-          <div className="w-8"></div>
-          <div className="flex-1 flex justify-between">
-            {months.map((month, i) => (
-              <div key={i} className="text-xs text-zinc-500 dark:text-zinc-400">
-                {month}
-              </div>
-            ))}
-          </div>
+    const days = ["", "Mon", "", "Wed", "", "Fri", ""]
+
+    return (
+        <div className="overflow-x-auto">
+            <div className="min-w-[800px]">
+                <div className="flex mb-2">
+                    <div className="w-8"></div>
+                    <div className="flex-1 flex justify-between">
+                        {months.map((month, i) => (
+                            <div key={i} className="text-xs text-zinc-500 dark:text-zinc-400">
+                                {month.label}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex">
+                    <div className="w-8 flex flex-col justify-between text-xs text-zinc-500 dark:text-zinc-400">
+                        {days.map((day, i) => (
+                            <div key={i} className="h-3 flex items-center">
+                                {day}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex-1 grid gap-1" style={{ gridTemplateColumns: "repeat(53, minmax(0, 1fr))" }}>
+                        {weeks.map((week, weekIndex) => (
+                            <div key={weekIndex} className="grid grid-rows-7 gap-1">
+                                {week.map((day, dayIndex) => {
+                                    return (
+                                        <div
+                                            key={dayIndex}
+                                            className={`h-3 w-3 rounded-sm ${getContributionColor(day.count, day.future)}`}
+                                            title={day.future ? "" : `${day.date}: ${day.count} contributions`}
+                                        ></div>
+                                    )
+                                })}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex justify-end mt-2 items-center gap-2">
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">Less</span>
+                    <div className={`h-3 w-3 rounded-sm ${getContributionColor(0, false)}`}></div>
+                    <div className={`h-3 w-3 rounded-sm ${getContributionColor(1, false)}`}></div>
+                    <div className={`h-3 w-3 rounded-sm ${getContributionColor(3, false)}`}></div>
+                    <div className={`h-3 w-3 rounded-sm ${getContributionColor(6, false)}`}></div>
+                    <div className={`h-3 w-3 rounded-sm ${getContributionColor(7, false)}`}></div>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">More</span>
+                </div>
+            </div>
         </div>
-        <div className="flex">
-          <div className="w-8 flex flex-col justify-between text-xs text-zinc-500 dark:text-zinc-400">
-            {days.map((day, i) => (
-              <div key={i} className="h-3 flex items-center">
-                {day}
-              </div>
-            ))}
-          </div>
-          <div className="flex-1 grid grid-cols-52 gap-1">
-            {weeks.map((week) => (
-              <div key={week} className="grid grid-rows-7 gap-1">
-                {Array.from({ length: 7 }, (_, day) => {
-                  const index = week * 7 + day
-                  const level = contributionLevels[index]
-                  return (
-                    <div
-                      key={day}
-                      className={`h-3 w-3 rounded-sm ${getContributionColor(level)}`}
-                      title={`${level} contributions`}
-                    ></div>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="flex justify-end mt-2 items-center gap-2">
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">Less</span>
-          <div className={`h-3 w-3 rounded-sm ${getContributionColor(0)}`}></div>
-          <div className={`h-3 w-3 rounded-sm ${getContributionColor(1)}`}></div>
-          <div className={`h-3 w-3 rounded-sm ${getContributionColor(2)}`}></div>
-          <div className={`h-3 w-3 rounded-sm ${getContributionColor(3)}`}></div>
-          <div className={`h-3 w-3 rounded-sm ${getContributionColor(4)}`}></div>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">More</span>
-        </div>
-      </div>
-    </div>
-  )
+    )
 }
 
-function Search({ className }) {
+function Search({ className }: { className?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -738,64 +775,6 @@ function Search({ className }) {
     >
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
-    </svg>
-  )
-}
-
-function GitPullRequest({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <circle cx="18" cy="18" r="3" />
-      <circle cx="6" cy="6" r="3" />
-      <path d="M13 6h3a2 2 0 0 1 2 2v7" />
-      <path d="M6 9v12" />
-    </svg>
-  )
-}
-
-function AlertCircle({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" x2="12" y1="8" y2="12" />
-      <line x1="12" x2="12.01" y1="16" y2="16" />
-    </svg>
-  )
-}
-
-function GitCommit({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <circle cx="12" cy="12" r="3" />
-      <line x1="3" x2="9" y1="12" y2="12" />
-      <line x1="15" x2="21" y1="12" y2="12" />
     </svg>
   )
 }

@@ -10,6 +10,15 @@ urlpatterns = [
     path("public/", views.AllPublicProjectListView.as_view(), name="all-public-project-list"),
     path("public/<str:username>/", views.PublicProjectListView.as_view(), name="public-project-list"),
     path("tasks/my/", views.MyAssignedTasksView.as_view(), name="my-assigned-tasks"),
+
+    # Notification endpoints
+    path('notifications/', views.list_notifications, name='list-notifications'),
+    path('notifications/<int:notification_id>/read/', views.mark_notification_read, name='mark-notification-read'),
+    path('notifications/read-all/', views.mark_all_notifications_read, name='mark-all-notifications-read'),
+
+    # Public project detail — no auth required, only public projects
+    path("view/<str:username>/<slug:slug>/", views.PublicProjectDetailView.as_view(), name="public-project-detail"),
+
     path("<slug:slug>/", views.ProjectDetailView.as_view(), name="project-detail"),
     path("<slug:slug>/update/", views.ProjectUpdateView.as_view(), name="project-update"),
     path("<slug:slug>/delete/", views.ProjectDeleteView.as_view(), name="project-delete"),
@@ -47,7 +56,10 @@ urlpatterns = [
     path("<slug:slug>/discussions/<int:thread_id>/comments/<int:comment_id>/", views.update_delete_discussion_comment, name="update-delete-comment"),
     
     # Pull Request endpoints
-    path("<slug:slug>/pull-requests/", views.list_pull_requests, name="list-pull-requests"),
-    path("<slug:slug>/pull-requests/create/", views.create_pull_request, name="create-pull-request"),
-    path("<slug:slug>/pull-requests/<int:pr_id>/", views.get_pull_request, name="get-pull-request"),
+    path('<slug:slug>/pull-requests/', views.list_pull_requests, name='list-pull-requests'),
+    path('<slug:slug>/pull-requests/create/', views.create_pull_request, name='create-pull-request'),
+    path('<slug:slug>/pull-requests/<int:pr_id>/', views.get_pull_request, name='get-pull-request'),
+
+    # Star / Unstar endpoints
+    path('<slug:slug>/star/', views.toggle_star_project, name='toggle-star-project'),
 ]

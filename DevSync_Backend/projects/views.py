@@ -3,6 +3,7 @@ from .serializers import (
     ProjectCreateSerializer,
     ProjectListSerializer,
     ProjectDetailSerializer,
+    PublicProjectDetailSerializer,
     IssueCreateSerializer,
     #ProjectTaskListSerializer,
     ProjectTaskCreateSerializer,
@@ -23,7 +24,7 @@ from .serializers import (
 )
 
 from core.models import Profile
-from .models import Project, Whiteboard, Issue, ProjectTask, ProjectInvite, Branch, CodeFile, UserProjectRole, DiscussionThread, DiscussionComment, PullRequest
+from .models import Project, Whiteboard, Issue, ProjectTask, ProjectInvite, Branch, CodeFile, UserProjectRole, DiscussionThread, DiscussionComment, PullRequest, Notification
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -99,6 +100,27 @@ class ProjectDetailView(generics.RetrieveAPIView):
     def get_queryset(self):
         user = self.request.user
         return (Project.objects.filter(created_by=user) | Project.objects.filter(members=user)).distinct()
+
+
+class PublicProjectDetailView(generics.RetrieveAPIView):
+    """
+    Publicly accessible project detail view.
+    - No authentication required.
+    - Returns 404 for private projects or non-existent projects.
+    - Uses PublicProjectDetailSerializer (omits chat_id, whiteboard_id, tasks, member roles).
+    """
+    serializer_class = PublicProjectDetailSerializer
+    permission_classes = []  # No authentication required
+
+    def get_object(self):
+        username = self.kwargs.get('username')
+        slug = self.kwargs.get('slug')
+        user = get_object_or_404(User, username=username)
+        project = get_object_or_404(Project, created_by=user, slug=slug)
+        if project.visibility == 'private':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("This project is private")
+        return project
 
 class ProjectUpdateView(generics.UpdateAPIView):
     serializer_class = ProjectCreateSerializer  # reuse same as creation
@@ -733,35 +755,41 @@ def delete_file(request, slug, file_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def download_files(request, slug):
     """
     Download all project files as a ZIP archive.
-    
+    - Public projects: accessible by anyone (no authentication required).
+    - Private projects: requires authentication and membership.
+
     URL parameters:
     - slug: str (project slug)
-    
+
     Query parameters:
     - branch: str (optional, defaults to 'main')
-    
+
     Returns:
     - 200: ZIP file download
+    - 403: Private project, user not a member
     - 404: Project not found
-    - 401: User not authenticated
     """
     from django.http import FileResponse
     import zipfile
     import io
-    
+
     try:
         project = Project.objects.get(slug=slug)
     except Project.DoesNotExist:
         return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
-    
-    # Check if user is a member or project owner
-    if request.user not in project.members.all() and request.user != project.created_by:
-        return Response({'error': 'You do not have permission to download files from this project.'}, status=status.HTTP_403_FORBIDDEN)
-    
+
+    # For private projects, require authentication and membership
+    if project.visibility == 'private':
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required for private projects.'}, status=status.HTTP_401_UNAUTHORIZED)
+        if request.user not in project.members.all() and request.user != project.created_by:
+            return Response({'error': 'You do not have permission to download files from this project.'}, status=status.HTTP_403_FORBIDDEN)
+    # Public projects: anyone can download
+
     branch_name = request.query_params.get('branch', 'main')
     
     # Get all files for the project/branch
@@ -1406,3 +1434,88 @@ def get_pull_request(request, slug, pr_id):
 
     serializer = PullRequestDetailSerializer(pull_request)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ============================
+# Star / Unstar Project
+# ============================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def toggle_star_project(request, slug):
+    """
+    Toggle star status for a project.
+    POST /api/projects/<slug>/star/
+    Returns: { is_starred: bool, stars: int }
+    """
+    project = get_object_or_404(Project, slug=slug)
+
+    if request.user in project.starred_by.all():
+        project.starred_by.remove(request.user)
+        project.stars = max(0, project.stars - 1)
+        is_starred = False
+    else:
+        project.starred_by.add(request.user)
+        project.stars += 1
+        is_starred = True
+
+    project.save(update_fields=['stars'])
+    return Response({'is_starred': is_starred, 'stars': project.stars}, status=status.HTTP_200_OK)
+
+
+# ============================
+# Notification API Views
+# ============================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_notifications(request):
+    """
+    List all notifications for the authenticated user.
+    GET /api/projects/notifications/
+    Returns up to 50 most recent notifications.
+    """
+    notifications = (
+        Notification.objects
+        .filter(recipient=request.user)
+        .select_related('project')
+        .order_by('-created_at')[:50]
+    )
+
+    data = [
+        {
+            'id': n.id,
+            'type': n.notification_type,
+            'title': n.title,
+            'message': n.message,
+            'project': n.project.name if n.project else None,
+            'read': n.is_read,
+            'time': n.created_at,
+        }
+        for n in notifications
+    ]
+    return Response(data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_notification_read(request, notification_id):
+    """
+    Mark a specific notification as read.
+    POST /api/projects/notifications/<id>/read/
+    """
+    notification = get_object_or_404(Notification, id=notification_id, recipient=request.user)
+    notification.is_read = True
+    notification.save(update_fields=['is_read'])
+    return Response({'success': True}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_all_notifications_read(request):
+    """
+    Mark all notifications for current user as read.
+    POST /api/projects/notifications/read-all/
+    """
+    Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+    return Response({'success': True}, status=status.HTTP_200_OK)

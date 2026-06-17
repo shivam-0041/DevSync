@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UserProfileDetailView, PublicProfileView, ProfileSettingsView, ChangePasswordView, follow_user, unfollow_user, is_following, followers_list, following_list
+from .views import UserProfileDetailView, PublicProfileView, ProfileSettingsView, ChangePasswordView, follow_user, unfollow_user, is_following, followers_list, following_list, UserActivityListView
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -13,4 +13,5 @@ urlpatterns = [
     path('users/<str:username>/is-following/', is_following, name='is-following'),
     path('users/<str:username>/followers/', followers_list, name='followers-list'),
     path('users/<str:username>/following/', following_list, name='following-list'),
+    path('users/<str:username>/activity/', UserActivityListView.as_view(), name='user-activity'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_URL)

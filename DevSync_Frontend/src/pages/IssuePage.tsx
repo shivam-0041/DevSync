@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -74,6 +74,7 @@ export function IssuePage() {
   const { issueId } = useParams()
   const navigate = useNavigate()
   const [newComment, setNewComment] = useState("")
+  const isLoggedIn = !!localStorage.getItem("access")
 
   // Mock issue data - in a real app, this would be fetched based on issueId
   const issue: Issue = {
@@ -313,34 +314,48 @@ This affects the user experience and could lead to frustrated customers.`,
             </div>
 
             {/* Add Comment */}
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardContent className="p-6">
-                <h4 className="font-medium mb-4">Add a comment</h4>
-                <div className="space-y-4">
-                  <Textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Leave a comment..."
-                    className="min-h-[120px] bg-zinc-800 border-zinc-700"
-                  />
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm">
-                        <Paperclip className="h-4 w-4" />
+            {isLoggedIn ? (
+              <Card className="bg-zinc-900 border-zinc-800">
+                <CardContent className="p-6">
+                  <h4 className="font-medium mb-4">Add a comment</h4>
+                  <div className="space-y-4">
+                    <Textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Leave a comment..."
+                      className="min-h-[120px] bg-zinc-800 border-zinc-700"
+                    />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm">
+                          <Paperclip className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <Button
+                        onClick={handleSubmitComment}
+                        disabled={!newComment.trim()}
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        Comment
                       </Button>
                     </div>
-                    <Button
-                      onClick={handleSubmitComment}
-                      disabled={!newComment.trim()}
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      Comment
-                    </Button>
                   </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="border border-dashed border-zinc-700 rounded-lg p-6 text-center bg-zinc-900/50">
+                <p className="text-zinc-400 text-sm mb-3">Sign in to participate in this issue</p>
+                <div className="flex justify-center gap-2">
+                  <Link to="/login">
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">Sign In</Button>
+                  </Link>
+                  <Link to="/register">
+                    <Button size="sm" variant="outline" className="border-zinc-700 text-zinc-300">Register</Button>
+                  </Link>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -417,16 +432,18 @@ This affects the user experience and could lead to frustrated customers.`,
             </Card>
 
             {/* Actions */}
-            <div className="space-y-2">
-              <Button className="w-full bg-emerald-600 hover:bg-emerald-700">
-                <Edit3 className="h-4 w-4 mr-2" />
-                Edit Issue
-              </Button>
-              <Button variant="outline" className="w-full border-zinc-600 bg-transparent">
-                <X className="h-4 w-4 mr-2" />
-                Close Issue
-              </Button>
-            </div>
+            {isLoggedIn && (
+              <div className="space-y-2">
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700">
+                  <Edit3 className="h-4 w-4 mr-2" />
+                  Edit Issue
+                </Button>
+                <Button variant="outline" className="w-full border-zinc-600 bg-transparent">
+                  <X className="h-4 w-4 mr-2" />
+                  Close Issue
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>

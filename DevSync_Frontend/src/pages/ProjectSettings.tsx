@@ -33,7 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "../components/ui/badge"
 import { Separator } from "../components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
-import { fetchProjectData } from "../routes/projects"
+import { fetchProjectData, updateProject } from "../routes/projects"
 import { useParams } from "react-router-dom";
 
 // Types for collaborator functionality
@@ -45,11 +45,8 @@ interface User {
   email?: string;
 }
 
-interface ProjectMember {
-  id: string;
-  user: User;
-  role: 'read' | 'write' | 'admin' | 'owner';
-  joined_at: string;
+interface FormErrors {
+  [key: string]: string | null
 }
 
 interface CollaboratorInvite {
@@ -78,6 +75,8 @@ export default function ProjectSettings() {
         readme: "",
         status: "active", 
     });
+    const branches = project.branches || [];
+
     useEffect( () => {
             if (slug) {
                 setLoading(true);
@@ -100,13 +99,6 @@ export default function ProjectSettings() {
             setProject((prev: any) => ({ ...prev, [name]: value }));
     };
     
-    const handleVisibility = (checked: boolean) => {
-        setProject(prev => ({
-            ...prev,
-            visibility: checked ? "public" : "private"
-        }));
-    };
-    
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
     const [errors, setErrors] = useState<FormErrors>({})
 
@@ -119,18 +111,21 @@ export default function ProjectSettings() {
     const [isInviting, setIsInviting] = useState(false)
 
 
-    const handleSave = () => {
-        e.preventDefault();
+    const handleSave = async (e?: React.FormEvent | React.MouseEvent) => {
+        if (e) e.preventDefault();
         setSaveStatus("saving");
 
-       
-
-        if (result?.success) {
-            setSaveStatus("saved");
-            setTimeout(() => setSaveStatus("idle"), 2000);
-        } else {
+        try {
+            const result = await updateProject(project, slug || "");
+            if (result?.success) {
+                setSaveStatus("saved");
+                setTimeout(() => setSaveStatus("idle"), 2000);
+            } else {
+                setSaveStatus("idle");
+            }
+        } catch (error) {
+            console.error("Error updating project settings:", error);
             setSaveStatus("idle");
-            
         }
     }
 
@@ -244,10 +239,10 @@ export default function ProjectSettings() {
     ))
 
     const handleInputChange = useCallback(
-        (field: keyof FormData, value: string | boolean) => {
-            setProject((prev) => ({ ...prev, [field]: value }))
+        (field: string, value: string | boolean) => {
+            setProject((prev: any) => ({ ...prev, [field]: value }))
             if (errors[field]) {
-                setErrors((prev) => ({ ...prev, [field]: null }))
+                setErrors((prev: any) => ({ ...prev, [field]: null }))
             }
         },
         [errors],
@@ -260,24 +255,30 @@ export default function ProjectSettings() {
         [handleInputChange],
     )
 
-        
+    const webhooks = [
+        {
+        id: 1,
+        url: "https://api.example.com/webhook",
+        events: ["push", "pull_request"],
+        active: true,
+        lastDelivery: "2 hours ago",
+        },
+        {
+        id: 2,
+        url: "https://discord.com/api/webhooks/123456789",
+        events: ["issues", "pull_request"],
+        active: false,
+        lastDelivery: "1 week ago",
+        },
+    ]
 
-    // const webhooks = [
-    //     {
-    //     id: 1,
-    //     url: "https://api.example.com/webhook",
-    //     events: ["push", "pull_request"],
-    //     active: true,
-    //     lastDelivery: "2 hours ago",
-    //     },
-    //     {
-    //     id: 2,
-    //     url: "https://discord.com/api/webhooks/123456789",
-    //     events: ["issues", "pull_request"],
-    //     active: false,
-    //     lastDelivery: "1 week ago",
-    //     },
-    // ]
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -469,7 +470,7 @@ export default function ProjectSettings() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {project.contributors.map((contributors, index) => (
+                      {(project.contributors || []).map((contributors: any, index: number) => (
                         <div key={index} className="flex items-center justify-between py-2">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-8 w-8">
@@ -630,7 +631,7 @@ export default function ProjectSettings() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {branches.map((branch, index) => (
+                      {branches.map((branch: any, index: number) => (
                         <div key={index} className="flex items-center justify-between py-2">
                           <div className="flex items-center gap-3">
                             <GitBranch className="h-4 w-4 text-zinc-400" />
@@ -859,7 +860,7 @@ export default function ProjectSettings() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {webhooks.map((webhook) => (
+                      {webhooks.map((webhook: any) => (
                         <div key={webhook.id} className="p-3 bg-zinc-800 rounded-md">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">

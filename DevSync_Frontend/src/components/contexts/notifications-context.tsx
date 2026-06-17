@@ -1,11 +1,17 @@
 "use client"
 
-import React, { createContext, useContext, useMemo, useState, useCallback } from "react"
-import { MessageSquare, GitPullRequest, Code, Users } from "lucide-react"
+import React, { createContext, useContext, useMemo, useState, useCallback, useEffect } from "react"
+import { MessageSquare, GitPullRequest, Code, Users, CheckSquare, Bell } from "lucide-react"
+import {
+  fetchNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  type BackendNotification,
+} from "../../routes/projects"
 
 interface Notification {
   id: number
-  type: "mention" | "pull-request" | "commit" | "team"
+  type: "mention" | "pull-request" | "commit" | "team" | "task" | "general"
   read: boolean
   title: string
   message: string
@@ -21,87 +27,124 @@ interface NotificationsContextValue {
   markAllAsRead: () => void
   deleteNotification: (id: number) => void
   unreadCount: number
+  isLoading: boolean
+  refetch: () => void
 }
 
 const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined)
 
-const initialNotifications: Notification[] = [
-  {
-    id: 1,
-    type: "mention",
-    read: false,
-    title: "You were mentioned in a comment",
-    message: "Alex mentioned you in a comment on the 'User Authentication' task.",
-    time: "10 minutes ago",
-    project: "DevSync Web App",
-    icon: <MessageSquare className="h-5 w-5" />,
-  },
-  {
-    id: 2,
-    type: "pull-request",
-    read: false,
-    title: "New pull request requires your review",
-    message: "Sarah created a pull request 'Add user settings page' and requested your review.",
-    time: "1 hour ago",
-    project: "DevSync Web App",
-    icon: <GitPullRequest className="h-5 w-5" />,
-  },
-  {
-    id: 3,
-    type: "commit",
-    read: true,
-    title: "New commits pushed to main",
-    message: "Michael pushed 5 commits to the main branch.",
-    time: "3 hours ago",
-    project: "DevSync API",
-    icon: <Code className="h-5 w-5" />,
-  },
-  {
-    id: 4,
-    type: "team",
-    read: true,
-    title: "New team member joined",
-    message: "Emma Wilson joined the DevSync team.",
-    time: "Yesterday",
-    project: "DevSync Organization",
-    icon: <Users className="h-5 w-5" />,
-  },
-]
+function getIcon(type: BackendNotification["type"]): React.ReactNode {
+  switch (type) {
+    case "mention":
+      return <MessageSquare className="h-5 w-5" />
+    case "pull_request":
+      return <GitPullRequest className="h-5 w-5" />
+    case "commit":
+      return <Code className="h-5 w-5" />
+    case "team":
+      return <Users className="h-5 w-5" />
+    case "task":
+      return <CheckSquare className="h-5 w-5" />
+    default:
+      return <Bell className="h-5 w-5" />
+  }
+}
+
+function normalizeType(type: BackendNotification["type"]): Notification["type"] {
+  if (type === "pull_request") return "pull-request"
+  return type as Notification["type"]
+}
+
+function formatNotificationTime(isoString: string): string {
+  try {
+    const date = new Date(isoString)
+    if (isNaN(date.getTime())) return "Recently"
+    const minutes = Math.floor((Date.now() - date.getTime()) / 60000)
+    if (minutes < 1) return "Just now"
+    if (minutes < 60) return `${minutes} min ago`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`
+    const days = Math.floor(hours / 24)
+    if (days < 7) return `${days} day${days > 1 ? "s" : ""} ago`
+    return date.toLocaleDateString()
+  } catch {
+    return "Recently"
+  }
+}
+
+function mapBackendNotification(n: BackendNotification): Notification {
+  return {
+    id: n.id,
+    type: normalizeType(n.type),
+    read: n.read,
+    title: n.title || "Notification",
+    message: n.message,
+    time: formatNotificationTime(n.time),
+    project: n.project || "",
+    icon: getIcon(n.type),
+  }
+}
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-    try {
-      const raw = localStorage.getItem("notifications")
-      return raw ? JSON.parse(raw) : initialNotifications
-    } catch {
-      return initialNotifications
-    }
-  })
+  const [notifications, setNotificationsState] = useState<Notification[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
-  const persist = useCallback((next: Notification[]) => {
-    setNotifications(next)
+  const loadNotifications = useCallback(async () => {
+    const token = localStorage.getItem("access")
+    if (!token) return
+
+    setIsLoading(true)
     try {
-      localStorage.setItem("notifications", JSON.stringify(next))
-    } catch {}
+      const data = await fetchNotifications()
+      setNotificationsState(data.map(mapBackendNotification))
+    } catch (err) {
+      console.error("Failed to load notifications:", err)
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
 
-  const markAsRead = useCallback((id: number) => {
-    persist(notifications.map((n) => (n.id === id ? { ...n, read: true } : n)))
-  }, [notifications, persist])
+  useEffect(() => {
+    loadNotifications()
+  }, [loadNotifications])
 
-  const markAllAsRead = useCallback(() => {
-    persist(notifications.map((n) => ({ ...n, read: true })))
-  }, [notifications, persist])
+  const setNotifications = useCallback((n: Notification[]) => {
+    setNotificationsState(n)
+  }, [])
+
+  const markAsRead = useCallback(async (id: number) => {
+    setNotificationsState((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    )
+    await markNotificationRead(id)
+  }, [])
+
+  const markAllAsRead = useCallback(async () => {
+    setNotificationsState((prev) => prev.map((n) => ({ ...n, read: true })))
+    await markAllNotificationsRead()
+  }, [])
 
   const deleteNotification = useCallback((id: number) => {
-    persist(notifications.filter((n) => n.id !== id))
-  }, [notifications, persist])
+    setNotificationsState((prev) => prev.filter((n) => n.id !== id))
+  }, [])
 
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications])
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications]
+  )
 
   return (
     <NotificationsContext.Provider
-      value={{ notifications, setNotifications: persist, markAsRead, markAllAsRead, deleteNotification, unreadCount }}
+      value={{
+        notifications,
+        setNotifications,
+        markAsRead,
+        markAllAsRead,
+        deleteNotification,
+        unreadCount,
+        isLoading,
+        refetch: loadNotifications,
+      }}
     >
       {children}
     </NotificationsContext.Provider>

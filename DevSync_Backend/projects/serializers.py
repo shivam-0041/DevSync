@@ -42,10 +42,17 @@ class ProjectListSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField()
     branches = serializers.IntegerField(source='branches_count', read_only=True)
     comments = serializers.IntegerField(source='discussion_count', read_only=True)
+    is_starred = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
-        fields = '__all__' 
+        fields = '__all__'
+
+    def get_is_starred(self, obj):
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            return obj.starred_by.filter(pk=request.user.pk).exists()
+        return False
 
 
 
@@ -64,6 +71,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     branch_count = serializers.IntegerField(source='branches_count', read_only=True)
     issues_count = serializers.IntegerField(source='issue_count', read_only=True)
     pull_requests_count = serializers.IntegerField(source='open_pull_request_count', read_only=True)
+    is_starred = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
@@ -91,7 +99,15 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             "chat_id",
             "slug",
             "members",
+            "stars",
+            "is_starred",
         ]
+
+    def get_is_starred(self, obj):
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            return obj.starred_by.filter(pk=request.user.pk).exists()
+        return False
 
     # --- Custom field methods ---
     def get_created_by(self, obj):
@@ -109,6 +125,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
                 "id": branch.id,
                 "name": branch.name,
                 "created_at": branch.created_at,
+                "is_default": branch.is_default,
             }
             for branch in obj.branches.all()
         ]
@@ -258,6 +275,217 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         ]
 
     
+
+# ============================
+# Public (unauthenticated) Project Detail Serializer
+# Omits sensitive fields: chat_id, whiteboard_id, tasks, member roles
+# Discussions and issues are included read-only
+# ============================
+
+class PublicProjectDetailSerializer(serializers.ModelSerializer):
+    created_by = serializers.SerializerMethodField()
+    branches = serializers.SerializerMethodField()
+    files = serializers.SerializerMethodField()
+    activities = serializers.SerializerMethodField()
+    contributors = serializers.SerializerMethodField()
+    issues = serializers.SerializerMethodField()
+    pull_requests = serializers.SerializerMethodField()
+    discussions = serializers.SerializerMethodField()
+    commit_count = serializers.IntegerField(source='commits_count', read_only=True)
+    branch_count = serializers.IntegerField(source='branches_count', read_only=True)
+    issues_count = serializers.IntegerField(source='issue_count', read_only=True)
+    pull_requests_count = serializers.IntegerField(source='open_pull_request_count', read_only=True)
+    is_starred = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Project
+        fields = [
+            "id",
+            "name",
+            "description",
+            "visibility",
+            "slug",
+            "logo",
+            "created_by",
+            "branches",
+            "files",
+            "activities",
+            "contributors",
+            "issues",
+            "pull_requests",
+            "discussions",
+            "readme",
+            "commit_count",
+            "branch_count",
+            "issues_count",
+            "pull_requests_count",
+            "updated_at",
+            "created_at",
+            "stars",
+            "is_starred",
+            "languages",
+            "license",
+        ]
+
+    def get_is_starred(self, obj):
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            return obj.starred_by.filter(pk=request.user.pk).exists()
+        return False
+
+    def get_created_by(self, obj):
+        if not obj.created_by:
+            return None
+        profile = getattr(obj.created_by, 'profile', None)
+        avatar_url = None
+        avatar = getattr(profile, 'avatar', None)
+        if avatar:
+            try:
+                request = self.context.get('request')
+                avatar_name = getattr(avatar, 'name', '') or ''
+                if avatar_name and 'def-avatar.svg' not in avatar_name:
+                    avatar_url = request.build_absolute_uri(avatar.url) if request else avatar.url
+            except Exception:
+                avatar_url = None
+        return {
+            "id": obj.created_by.id,
+            "username": obj.created_by.username,
+            "avatar": avatar_url,
+        }
+
+    def get_branches(self, obj):
+        return [
+            {
+                "id": branch.id,
+                "name": branch.name,
+                "created_at": branch.created_at,
+                "is_default": branch.is_default,
+            }
+            for branch in obj.branches.all()
+        ]
+
+    def get_files(self, obj):
+        code_files = obj.files.select_related("parent", "uploaded_by", "branch").all().order_by("name")
+        file_map = {}
+        roots = []
+        for code_file in code_files:
+            file_url = None
+            file_size = None
+            if code_file.file:
+                try:
+                    file_url = code_file.file.url
+                except Exception:
+                    file_url = None
+                try:
+                    file_size = code_file.file.size
+                except Exception:
+                    file_size = None
+            file_map[code_file.id] = {
+                "id": code_file.id,
+                "name": code_file.name,
+                "item_type": code_file.item_type,
+                "filetype": code_file.filetype,
+                "file_url": file_url,
+                "size": file_size,
+                "uploaded_at": code_file.uploaded_at,
+                "uploaded_by": code_file.uploaded_by.username if code_file.uploaded_by else None,
+                "branch": code_file.branch.name if code_file.branch else None,
+                "children": [],
+            }
+        for code_file in code_files:
+            current = file_map[code_file.id]
+            if code_file.parent_id and code_file.parent_id in file_map:
+                file_map[code_file.parent_id]["children"].append(current)
+            else:
+                roots.append(current)
+        return roots
+
+    def get_activities(self, obj):
+        return [
+            {
+                "id": act.id,
+                "user": {
+                    "id": act.user.id if act.user else None,
+                    "username": act.user.username if act.user else None,
+                },
+                "action": act.action,
+                "timestamp": act.timestamp,
+            }
+            for act in obj.activities.all().order_by("-timestamp")[:20]
+        ]
+
+    def get_contributors(self, obj):
+        from django.contrib.auth import get_user_model
+        UserModel = get_user_model()
+        users = UserModel.objects.filter(projectactivity__project=obj).distinct()
+        result = []
+        for u in users:
+            profile = getattr(u, 'profile', None)
+            avatar_url = None
+            avatar = getattr(profile, 'avatar', None)
+            if avatar:
+                try:
+                    request = self.context.get('request')
+                    avatar_url = request.build_absolute_uri(avatar.url) if request else avatar.url
+                except Exception:
+                    avatar_url = None
+            result.append({
+                "id": u.id,
+                "username": u.username,
+                "avatar": avatar_url,
+            })
+        return result
+
+    def get_issues(self, obj):
+        issues = obj.issues_list.all().order_by("-created_at")[:50]
+        return [
+            {
+                "id": issue.id,
+                "title": issue.title,
+                "status": issue.status,
+                "issue_type": issue.issue_type,
+                "priority": issue.priority,
+                "labels": issue.labels,
+                "created_by_username": issue.created_by.username if issue.created_by else None,
+                "assigned_to_username": issue.assigned_to.username if issue.assigned_to else None,
+                "created_at": issue.created_at,
+                "updated_at": issue.updated_at,
+            }
+            for issue in issues
+        ]
+
+    def get_pull_requests(self, obj):
+        return [
+            {
+                "id": pr.id,
+                "from_branch": pr.from_branch.name if pr.from_branch else None,
+                "to_branch": pr.to_branch.name if pr.to_branch else None,
+                "created_by": pr.created_by.username if pr.created_by else None,
+                "message": pr.message,
+                "status": pr.status,
+                "is_draft": pr.is_draft,
+                "created_at": pr.created_at,
+            }
+            for pr in obj.pull_requests.select_related("from_branch", "to_branch", "created_by").all().order_by("-created_at")
+        ]
+
+    def get_discussions(self, obj):
+        return [
+            {
+                "id": thread.id,
+                "thread_id": thread.thread_id,
+                "title": thread.title,
+                "thread_type": thread.thread_type,
+                "created_by": thread.created_by.username if thread.created_by else None,
+                "created_at": thread.created_at,
+                "comment_count": thread.comment_count,
+                "is_closed": thread.is_closed,
+                "last_activity": thread.last_activity,
+                "labels": thread.labels,
+            }
+            for thread in obj.threads.select_related("created_by").all().order_by("-last_activity")
+        ]
+
 
 class WhiteboardSerializer(serializers.ModelSerializer):
     last_modified_by = serializers.CharField(
