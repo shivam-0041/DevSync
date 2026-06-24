@@ -483,11 +483,7 @@ class LanguageUsage(models.Model):
     def __str__(self):
         return f"{self.language} ({self.percentage}%) - {self.project.name}"
 
-# ---- Chat/Whiteboard models for repositories ----
-class Chat(models.Model):
-    repository = models.OneToOneField('Project', on_delete=models.CASCADE, related_name='chat')
-    created_at = models.DateTimeField(auto_now_add=True)
-    participants = models.ManyToManyField(User)
+# ---- Whiteboard models for repositories ----
 
 class Whiteboard(models.Model):
     repository = models.OneToOneField('Project', on_delete=models.CASCADE, related_name='whiteboard')

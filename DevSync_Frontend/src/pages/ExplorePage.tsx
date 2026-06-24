@@ -828,6 +828,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { Link } from "react-router-dom"
 import { ExternalLink, Filter, GitBranch, Search, Star, Zap } from "lucide-react"
 import { cn } from "../lib/utils"
 import {
@@ -875,8 +876,12 @@ function formatRelativeDate(value?: string) {
 }
 
 const DevSyncProjectCard = ({ project }: { project: DevSyncPublicProject }) => {
+    const projectUrl = `/${project.created_by}/project/${project.slug}/view`
     return (
-        <div className="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:border-emerald-500/50 transition-all">
+        <Link 
+            to={projectUrl}
+            className="block bg-gray-800 rounded-lg p-5 border border-gray-700 hover:border-emerald-500/50 transition-all hover:bg-gray-800/80 cursor-pointer"
+        >
             <div className="flex justify-between items-start gap-3">
                 <div>
                     <h3 className="text-lg font-semibold text-white">{project.name}</h3>
@@ -893,7 +898,7 @@ const DevSyncProjectCard = ({ project }: { project: DevSyncPublicProject }) => {
                 <span>{project.language || "General"}</span>
                 <span>Updated {formatRelativeDate(project.updated_at)}</span>
             </div>
-        </div>
+        </Link>
     )
 }
 

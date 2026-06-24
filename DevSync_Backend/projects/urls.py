@@ -10,6 +10,7 @@ urlpatterns = [
     path("public/", views.AllPublicProjectListView.as_view(), name="all-public-project-list"),
     path("public/<str:username>/", views.PublicProjectListView.as_view(), name="public-project-list"),
     path("tasks/my/", views.MyAssignedTasksView.as_view(), name="my-assigned-tasks"),
+    path("tasks/<str:task_id>/update-status/", views.update_task_status, name="update-task-status"),
 
     # Notification endpoints
     path('notifications/', views.list_notifications, name='list-notifications'),

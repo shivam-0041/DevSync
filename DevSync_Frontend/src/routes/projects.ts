@@ -404,6 +404,29 @@ export async function fetchMyTasks(_username: string): Promise<DashboardTask[]> 
     }
 }
 
+export async function updateTaskStatus(taskId: number | string, newStatus: string) {
+    try {
+        const token = localStorage.getItem("access");
+        if (!token) {
+            console.error("No token found in localStorage");
+            return { success: false, error: "No token found" };
+        }
+        const response = await axios.patch(
+            `${BASE_URL}tasks/${taskId}/update-status/`,
+            { status: newStatus },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error("Failed to update task status:", error.response?.data || error.message);
+        return { success: false, error: error.response?.data || "Unknown error" };
+    }
+}
+
 
 export async function ProjectInvite(slug,formData){
     try {

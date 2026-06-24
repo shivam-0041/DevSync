@@ -59,7 +59,7 @@ import { Textarea } from "../components/ui/textarea"
 import { TaskAllocation } from "../components/task-allocation"
 import { CreateTaskModal } from "../components/createtask"
 import { DiscussionsView } from "../components/discussions/DiscussionsView"
-import { fetchProjectData, fetchProjectMembers, uploadFiles, deleteFile, downloadFiles, toggleStarProject } from "../routes/projects"
+import { fetchProjectData, fetchProjectMembers, uploadFiles, deleteFile, downloadFiles, toggleStarProject, updateTaskStatus } from "../routes/projects"
 import { useEffect, useState, useMemo, useRef } from "react"
 
 // Helper function to safely format dates
@@ -427,6 +427,24 @@ export default function ProjectPage() {
             }).finally(()=> setLoading(false));
         }
     }, [projectId]);
+
+    const handleUpdateTaskStatus = async (taskId: string | number, newStatus: string) => {
+        const result = await updateTaskStatus(taskId, newStatus);
+        if (result.success) {
+            toast.success("Task status updated!");
+            if (projectId) {
+                fetchProjectData(projectId)
+                .then((res) => {
+                    if (res.success && res.data) {
+                        setProject(res.data);
+                    }
+                })
+                .catch(console.error);
+            }
+        } else {
+            toast.error("Failed to update task status");
+        }
+    };
     
     //Branches data 
     useEffect(() => {
@@ -1123,7 +1141,7 @@ export default function ProjectPage() {
                                                     isOpen={open}
                                                     onClose={() => setOpen(false)}
                                                     onCreateTask={(taskData) => {
-                                                        console.log("New Task Created:", taskData);
+                                                        //console.log("New Task Created:", taskData);
                                                         // You can call API here to save task
                                                     }}
                                                     projectData={project}
@@ -1141,7 +1159,7 @@ export default function ProjectPage() {
                                                 {tasks
                                                     .filter((task) => task.status === "in_progress")
                                                     .map((task) => (
-                                                        <TaskItem key={task.id} task={task} />
+                                                        <TaskItem key={task.id} task={task} onUpdateStatus={handleUpdateTaskStatus} currentUserRole={currentUserRole} />
                                                     ))}
                                             </div>
                                         </div>
@@ -1154,7 +1172,7 @@ export default function ProjectPage() {
                                                 {tasks
                                                     .filter((task) => task.status === "to_do")
                                                     .map((task) => (
-                                                        <TaskItem key={task.id} task={task} />
+                                                        <TaskItem key={task.id} task={task} onUpdateStatus={handleUpdateTaskStatus} currentUserRole={currentUserRole} />
                                                     ))}
                                             </div>
                                         </div>
@@ -1167,11 +1185,31 @@ export default function ProjectPage() {
                                                 {tasks
                                                     .filter((task) => task.status === "review")
                                                     .map((task) => (
-                                                        <TaskItem key={task.id} task={task} />
+                                                        <TaskItem key={task.id} task={task} onUpdateStatus={handleUpdateTaskStatus} currentUserRole={currentUserRole} />
                                                     ))}
                                             </div>
                                         </div>
                                     </div>
+                                    
+                                    {/* Completed Tasks list */}
+                                    {tasks.filter((task) => task.status === "done").length > 0 && (
+                                        <div className="mt-8 pt-6 border-t border-zinc-200 dark:border-zinc-800">
+                                            <h4 className="font-semibold text-sm mb-3 text-zinc-500 dark:text-zinc-400">Completed Tasks</h4>
+                                            <div className="space-y-2">
+                                                {tasks
+                                                    .filter((task) => task.status === "done")
+                                                    .map((task) => (
+                                                        <div key={task.id} className="bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-md border border-zinc-200 dark:border-zinc-800 shadow-xs">
+                                                            <h5 className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{task.title}</h5>
+                                                            {task.description && (
+                                                                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{task.description}</p>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {tasks.length === 0 && (
                                         <p className="text-sm text-zinc-500">No tasks found.</p>
                                     )}
@@ -1194,7 +1232,7 @@ export default function ProjectPage() {
 
                     {/* Sidebar */}
                     <div className="w-full lg:w-80 space-y-6">
-                        <TaskAllocation tasks={project.tasks} sprintName="Current sprint tasks" />
+                        <TaskAllocation tasks={project.tasks} sprintName="Current sprint tasks" onUpdateStatus={handleUpdateTaskStatus} currentUserRole={currentUserRole} />
 
                         <Card>
                             <CardHeader className="pb-2">
@@ -1545,38 +1583,73 @@ function ActivityItem({ user, action, time }) {
     )
 }
 
-function TaskItem({ task }) {
+function TaskItem({ task, onUpdateStatus, currentUserRole }: { task: any; onUpdateStatus?: (taskId: string | number, newStatus: string) => void; currentUserRole?: string }) {
     const statusColors = {
         "In Progress": "border-l-emerald-500",
         "To Do": "border-l-amber-500",
-        Review: "border-l-purple-500",
-        Done: "border-l-blue-500",
+        "Review": "border-l-purple-500",
+        "Done": "border-l-blue-500",
     }
-    if(task.status=="to_do"){
-    task.status="To Do"
-    }
-    else if(task.status=="in_progress"){
-        task.status="In Progress"
-    }
-    else if(task.status=="done"){
-        task.status="Done"
-    }
-    else if(task.status=="review"){
-        task.status="Review"
-    }
+    const displayStatus = task.status === "to_do" ? "To Do" :
+                          task.status === "in_progress" ? "In Progress" :
+                          task.status === "review" ? "Review" :
+                          task.status === "done" ? "Done" : task.status;
+
+    const loggedInUser = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user") || "{}") : {};
+    const isAssignedToMe = task.assign_to === loggedInUser.username;
+    const isAdmin = currentUserRole === "admin";
+
+    const showStartProgress = isAssignedToMe && task.status === "to_do";
+    const showMarkAsDoneForAssignee = isAssignedToMe && task.status === "in_progress";
+    const showMarkAsDoneForAdmin = isAdmin && task.status === "review";
 
     return (
-        <div className={`p-3 rounded-md border-l-4 ${statusColors[task.status]} bg-white dark:bg-zinc-800 shadow-sm`}>
-            <h3 className="font-medium text-sm">{task.title}</h3>
+        <div className={`p-3 rounded-md border-l-4 ${statusColors[displayStatus]} bg-white dark:bg-zinc-800 shadow-sm flex flex-col gap-2`}>
+            <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{task.title}</h3>
             <div className="flex justify-between mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <div className="flex items-center gap-1">
                     <Avatar className="h-4 w-4">
-                        <AvatarFallback className="text-[8px]">{task.assign_to}</AvatarFallback>
+                        <AvatarFallback className="text-[8px]">{task.assign_to ? task.assign_to.slice(0, 2).toUpperCase() : "?"}</AvatarFallback>
                     </Avatar>
-                    {task.assign_to}
+                    <span>{task.assign_to || "Unassigned"}</span>
                 </div>
-                <div>Due: {task.deadline}</div>
+                <div>Due: {task.deadline || "—"}</div>
             </div>
+            
+            {onUpdateStatus && (showStartProgress || showMarkAsDoneForAssignee || showMarkAsDoneForAdmin) && (
+                <div className="mt-1 pt-2 border-t border-zinc-100 dark:border-zinc-700/50 flex justify-end">
+                    {showStartProgress && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 py-1 px-3 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/20 hover:text-emerald-700 dark:hover:text-emerald-300 transition-all duration-200 rounded-md"
+                            onClick={() => onUpdateStatus(task.id || task.task_id, "in_progress")}
+                        >
+                            Start Progress
+                        </Button>
+                    )}
+                    {showMarkAsDoneForAssignee && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 py-1 px-3 border-purple-500/30 text-purple-600 dark:text-purple-400 bg-purple-500/5 hover:bg-purple-500/20 hover:text-purple-700 dark:hover:text-purple-300 transition-all duration-200 rounded-md"
+                            onClick={() => onUpdateStatus(task.id || task.task_id, "review")}
+                        >
+                            Mark as Done
+                        </Button>
+                    )}
+                    {showMarkAsDoneForAdmin && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 py-1 px-3 border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/5 hover:bg-blue-500/20 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-200 rounded-md"
+                            onClick={() => onUpdateStatus(task.id || task.task_id, "done")}
+                        >
+                            Mark as Done
+                        </Button>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

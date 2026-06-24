@@ -1,6 +1,6 @@
 "use client"
 import { Link, useParams } from "react-router-dom"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useRef } from "react"
 import axios from "axios"
 import {
     Code,
@@ -79,6 +79,14 @@ export default function CollaboratePage() {
     const [isInviting, setIsInviting] = useState(false)
     const [loading, setLoading] = useState(true);
     const loggedInUser = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user") || "{}") : {}
+    const [messages, setMessages] = useState<any[]>([])
+    const [inputMessage, setInputMessage] = useState("")
+    const [chatId, setChatId] = useState<string>("")
+    const wsRef = useRef<WebSocket | null>(null)
+    const messagesEndRef = useRef<HTMLDivElement | null>(null)
+    const [mentionSearch, setMentionSearch] = useState("")
+    const [mentionStartIdx, setMentionStartIdx] = useState(-1)
+    const [selectedMentionIndex, setSelectedMentionIndex] = useState(0)
 
     const resolveAvatar = (avatar?: string | null) => {
         if (!avatar || avatar === "null" || avatar === "undefined") {
@@ -290,15 +298,26 @@ export default function CollaboratePage() {
 
             setLoading(true)
             try {
-const [projectResultObj, membersResult] = await Promise.all([
-                fetchProjectData(projectSlug),
-                fetchProjectMembers(projectSlug),
-            ])
-            
-            const projectData = projectResultObj.success && projectResultObj.data ? projectResultObj.data : {}
+                const [projectResultObj, membersResult] = await Promise.all([
+                    fetchProjectData(projectSlug),
+                    fetchProjectMembers(projectSlug),
+                ])
+                
+                const projectData = projectResultObj.success && projectResultObj.data ? projectResultObj.data : {}
 
                 setProjectName(projectData?.name || "Project")
                 setProjectOwner(projectData?.created_by?.username || username || "")
+                setChatId(projectData?.chat_id || "")
+
+                try {
+                    const token = localStorage.getItem("access")
+                    const historyResult = await axios.get(`http://localhost:8000/api/chats/${projectSlug}/messages/`, {
+                        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                    })
+                    setMessages(historyResult.data || [])
+                } catch (chatError) {
+                    console.error("Failed to load chat history:", chatError)
+                }
 
                 const files = Array.isArray(projectData?.files) ? projectData.files : []
                 setProjectFiles(files)
@@ -346,8 +365,156 @@ const [projectResultObj, membersResult] = await Promise.all([
         fetchCollaborationData()
     }, [projectSlug, username])
 
+    // WebSocket Connection
+    useEffect(() => {
+        if (!chatId) return
+
+        const token = localStorage.getItem("access")
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+        const wsHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+            ? "localhost:8000"
+            : window.location.host
+            
+        const wsUrl = `${wsProtocol}//${wsHost}/ws/chat/${chatId}/`
+
+        const socket = new WebSocket(wsUrl)
+        wsRef.current = socket
+
+        socket.onopen = () => {
+            // Secure connection: pass token inside WS message instead of URL query string
+            socket.send(JSON.stringify({
+                type: "auth",
+                token: token
+            }))
+        }
+
+        socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data)
+                setMessages((prev) => {
+                    if (prev.some((msg) => msg.id === data.id)) {
+                        return prev
+                    }
+                    return [...prev, data]
+                })
+            } catch (e) {
+                console.error("Error parsing websocket message:", e)
+            }
+        }
+
+        socket.onclose = (event) => {
+            // connection closed
+        }
+
+        socket.onerror = (error) => {
+            console.error("WebSocket error:", error)
+        }
+
+        return () => {
+            if (socket) {
+                socket.close()
+            }
+        }
+    }, [chatId])
+
+    const handleSendMessage = () => {
+        const content = inputMessage.trim()
+        if (!content || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+            return
+        }
+
+        wsRef.current.send(JSON.stringify({
+            message: content
+        }))
+        setInputMessage("")
+    }
+
+    const filteredCollaborators = useMemo(() => {
+        if (mentionStartIdx === -1) return []
+        return collaborators.filter(
+            (c) =>
+                c.username.toLowerCase().includes(mentionSearch) &&
+                c.username !== loggedInUser?.username
+        )
+    }, [collaborators, mentionStartIdx, mentionSearch, loggedInUser?.username])
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value
+        setInputMessage(val)
+
+        // Check if there is an active '@' mention being typed
+        const selectionStart = e.target.selectionStart || 0
+        const textBeforeCursor = val.slice(0, selectionStart)
+        
+        // Find the last index of '@' before the cursor
+        const lastAtIndex = textBeforeCursor.lastIndexOf("@")
+        
+        if (lastAtIndex !== -1) {
+            // Check if there's no whitespace between '@' and the cursor
+            const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1)
+            const hasSpace = textAfterAt.includes(" ")
+            
+            // Also ensure the '@' is either at start or has a space before it (e.g. "hello @user")
+            const isStartOrHasSpaceBefore = lastAtIndex === 0 || val.charAt(lastAtIndex - 1) === " "
+
+            if (!hasSpace && isStartOrHasSpaceBefore) {
+                setMentionStartIdx(lastAtIndex)
+                setMentionSearch(textAfterAt.toLowerCase())
+                setSelectedMentionIndex(0)
+                return
+            }
+        }
+        
+        // Reset if no active mention
+        setMentionStartIdx(-1)
+        setMentionSearch("")
+    }
+
+    const handleSelectMention = (usernameToInsert: string) => {
+        if (mentionStartIdx === -1) return
+        const before = inputMessage.slice(0, mentionStartIdx)
+        const after = inputMessage.slice(mentionStartIdx + mentionSearch.length + 1)
+        setInputMessage(`${before}@${usernameToInsert} ${after}`)
+        setMentionStartIdx(-1)
+        setMentionSearch("")
+    }
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (mentionStartIdx !== -1 && filteredCollaborators.length > 0) {
+            if (e.key === "ArrowDown") {
+                e.preventDefault()
+                setSelectedMentionIndex((prev) => (prev + 1) % filteredCollaborators.length)
+                return
+            }
+            if (e.key === "ArrowUp") {
+                e.preventDefault()
+                setSelectedMentionIndex((prev) => (prev - 1 + filteredCollaborators.length) % filteredCollaborators.length)
+                return
+            }
+            if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault()
+                handleSelectMention(filteredCollaborators[selectedMentionIndex].username)
+                return
+            }
+            if (e.key === "Escape") {
+                e.preventDefault()
+                setMentionStartIdx(-1)
+                setMentionSearch("")
+                return
+            }
+        }
+
+        if (e.key === "Enter") {
+            handleSendMessage()
+        }
+    }
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }, [messages])
+
     return (
-        <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
+        <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
             <header className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10">
                 <div className="container mx-auto px-4 py-3">
                     <div className="flex items-center justify-between">
@@ -469,8 +636,8 @@ const [projectResultObj, membersResult] = await Promise.all([
                 </div>
 
                 {/* Collaboration Panel */}
-                <div className="w-80 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col">
-                    <Tabs defaultValue="chat" className="flex-1 flex flex-col">
+                <div className="w-80 border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col min-h-0">
+                    <Tabs defaultValue="chat" className="flex-1 flex flex-col min-h-0">
                         <TabsList className="w-full justify-start px-2 pt-2 bg-transparent">
                             <TabsTrigger
                                 value="chat"
@@ -487,27 +654,93 @@ const [projectResultObj, membersResult] = await Promise.all([
                         </TabsList>
                         <Separator />
 
-                        <TabsContent value="chat" className="flex-1 flex flex-col p-0 m-0">
+                        <TabsContent value="chat" className="flex-1 flex flex-col p-0 m-0 overflow-hidden min-h-0">
                             <ScrollArea className="flex-1 p-4">
-                                <div className="space-y-4">
-                                    <p className="text-sm text-zinc-500">Realtime chat data is not connected yet for this page.</p>
+                                <div className="space-y-4 pr-3">
+                                    {messages.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-40 text-zinc-500">
+                                            <MessageSquare className="h-8 w-8 mb-2 opacity-50 text-zinc-400" />
+                                            <p className="text-sm">No messages yet</p>
+                                            <p className="text-xs text-zinc-400">Send a message to start the conversation!</p>
+                                        </div>
+                                    ) : (
+                                        messages.map((msg, index) => {
+                                            const isMe = msg.sender?.username === loggedInUser?.username;
+                                            return (
+                                                <div key={msg.id || index} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
+                                                    <Avatar className="h-8 w-8 shrink-0">
+                                                        <AvatarImage src={resolveAvatar(msg.sender?.avatar)} alt={msg.sender?.username} />
+                                                        <AvatarFallback>{msg.sender?.username?.charAt(0).toUpperCase()}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div className={`flex flex-col max-w-[70%] ${isMe ? 'items-end' : ''}`}>
+                                                        <span className="text-[10px] text-zinc-500 mb-1">
+                                                            {isMe ? 'You' : `@${msg.sender?.username}`}
+                                                        </span>
+                                                        <div className={`p-2.5 rounded-lg text-sm break-words ${
+                                                            isMe 
+                                                                ? 'bg-emerald-500 text-white rounded-tr-none' 
+                                                                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none'
+                                                        }`}>
+                                                            {msg.content}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                    <div ref={messagesEndRef} />
                                 </div>
                             </ScrollArea>
 
-                            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
+                            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 relative">
+                                {filteredCollaborators.length > 0 && (
+                                    <div className="absolute bottom-full left-4 right-4 mb-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-lg max-h-40 overflow-y-auto z-50">
+                                        <div className="p-2 text-[10px] font-semibold text-zinc-400 border-b border-zinc-100 dark:border-zinc-800">
+                                            Mentions (Use Up/Down + Enter to select)
+                                        </div>
+                                        {filteredCollaborators.map((c, i) => (
+                                            <button
+                                                key={c.username}
+                                                type="button"
+                                                onClick={() => handleSelectMention(c.username)}
+                                                className={`w-full text-left flex items-center gap-2 px-3 py-2 text-xs rounded-md ${
+                                                    i === selectedMentionIndex 
+                                                        ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50' 
+                                                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300'
+                                                }`}
+                                            >
+                                                <Avatar className="h-5 w-5">
+                                                    <AvatarImage src={c.avatar} />
+                                                    <AvatarFallback>{c.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex-1 truncate">
+                                                    <span className="font-semibold">{c.name}</span>
+                                                    <span className="text-zinc-400 ml-1">@{c.username}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                                 <div className="flex gap-2">
-                                    <Button variant="outline" size="icon" className="h-8 w-8">
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                    <Input placeholder="Type a message..." className="h-8" />
-                                    <Button size="icon" className="h-8 w-8 bg-emerald-500 hover:bg-emerald-600">
+                                    <Input 
+                                        placeholder="Type a message..." 
+                                        className="h-8 text-sm"
+                                        value={inputMessage}
+                                        onChange={handleInputChange}
+                                        onKeyDown={handleKeyDown}
+                                    />
+                                    <Button 
+                                        size="icon" 
+                                        className="h-8 w-8 bg-emerald-500 hover:bg-emerald-600 text-white"
+                                        onClick={handleSendMessage}
+                                    >
                                         <Send className="h-4 w-4" />
                                     </Button>
                                 </div>
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="people" className="flex-1 p-0 m-0">
+                        <TabsContent value="people" className="flex-1 flex flex-col p-0 m-0 min-h-0">
                             <ScrollArea className="flex-1 p-4">
                                 <div className="space-y-4">
                                     {collaborators.map((collaborator, index) => (

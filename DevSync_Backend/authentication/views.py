@@ -1,4 +1,7 @@
 # authentication/views.py
+import logging
+logger = logging.getLogger(__name__)
+
 from email.policy import default
 from urllib import response
 from rest_framework.decorators import api_view
@@ -62,7 +65,7 @@ This code will expire in 10 minutes. If you didn't request this, please ignore t
             except Exception as e:
                 context['result'] = f'Error sending email: {e}'
             finally:
-                print("done")
+                logger.info("Email verification sending completed")
 
         else:
             context['result'] = 'All fields are required'
@@ -122,7 +125,7 @@ class RegisterUserView(generics.CreateAPIView):
                     return Response({"error": "Invalid data"}, status=400)
                     #return Response(serializer.errors, status=400)
         except ValidationError as e:
-            print(e.detail)
+            logger.error(f"Validation error during registration: {e.detail}")
             return Response({"error": str(e.detail)}, status=status.HTTP_400_BAD_REQUEST)
             #return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         #return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

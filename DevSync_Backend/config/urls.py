@@ -25,6 +25,7 @@ urlpatterns = [
     #path('accounts/', include('allauth.urls')),
     path('api/core/', include('core.urls')),
     path("api/projects/", include("projects.urls")),
+    path("api/chats/", include("chats.urls")), 
 ] 
 
 if settings.DEBUG:

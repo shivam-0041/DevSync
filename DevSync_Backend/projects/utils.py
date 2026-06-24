@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from django.core.mail import send_mail
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -278,7 +281,7 @@ class ProjectInviteService:
             return True
             
         except Exception as e:
-            print(f"Error sending invite email: {str(e)}")
+            logger.error(f"Error sending invite email: {str(e)}")
             return False
 
 

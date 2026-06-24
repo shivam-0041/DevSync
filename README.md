@@ -1,6 +1,8 @@
-# DevSync (Under development) ⚠️
+# DevSync 🚀
 
-> **Under development:** This repository is a work in progress. Expect breaking changes and incomplete features.
+DevSync is a modern, collaborative code and project management platform. Designed for developers and teams, it combines code repository visualization, interactive task boards, real-time developer chat workspace, pull-request-like workflows, and comprehensive activity tracking into a unified experience.
+
+![DevSync Landing Page](landing-page-screenshot.png)
 
 ---
 
@@ -14,58 +16,76 @@ DevSync is a collaborative code and project platform that provides project repos
 
 ---
 
-## Quick start — Development 🚀
-### Prerequisites
-- Python 3.11+ (or the version in `myenv/`)
-- Node.js >= 18 and npm (or yarn/pnpm)
-- Git
+## Getting Started 🚀
 
-### Backend (API)
+### Prerequisites
+*   Python 3.11+
+*   Node.js >= 18 and npm (or yarn/pnpm)
+*   Git
+
+### 1. Backend Setup (API & WebSockets)
 ```bash
+# Navigate to the backend directory
 cd DevSync_Backend
+
+# Create and activate a virtual environment
 python -m venv venv
 source venv/bin/activate
+
+# Install requirements
 pip install -r ../backend_requirements.txt
+
+# Run migrations
 python manage.py migrate
-python manage.py createsuperuser  # optional
+
+# Create an administrator account (optional)
+python manage.py createsuperuser
+
+# Start the Daphne ASGI dev server
 python manage.py runserver 0.0.0.0:8000
 ```
-The API is available at `http://127.0.0.1:8000/`.
+*The API and WebSockets server will run on `http://127.0.0.1:8000/`.*
 
-### Frontend (Client)
+### 2. Frontend Setup (Client)
 ```bash
+# Navigate to the frontend directory
 cd DevSync_Frontend
+
+# Install node dependencies
 npm install
-npm run dev   # visit http://localhost:5173
+
+# Start the Vite development server
+npm run dev
 ```
+*The client application will run on `http://localhost:5173/`.*
 
 ---
 
-## Environment & Secrets 🔒
-> **Security note:** Do NOT commit secrets to the repository.
+## Environment Configuration 🔒
 
-- Use a local `.env` file and keep `.env` in `.gitignore`.
-- Required environment variables (example):
-  - `DJANGO_SECRET_KEY` — **required** in production (will raise if missing when `DEBUG=False`).
-  - `DJANGO_DEBUG` — set to `False` in production.
-  - `DATABASE_URL` (if switching from SQLite), `EMAIL_HOST_PASSWORD`, `SOCIAL_GITHUB_CLIENT_ID`, `SOCIAL_GITHUB_SECRET`.
+Create a `.env` file in the root backend directory (`DevSync_Backend/`) to configure environment keys. Refer to `.env.example` if available.
 
-Example to create a local `.env`:
+### Essential Variables
+*   `DJANGO_SECRET_KEY` — Private key for hashing and signing sessions.
+*   `DJANGO_DEBUG` — Set to `False` in production.
+*   `FRONTEND_URL` — Set to frontend application URL (default: `http://localhost:5173`).
+*   `SOCIAL_GITHUB_CLIENT_ID` / `SOCIAL_GITHUB_SECRET` — GitHub OAuth client keys.
+*   `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` — SMTP email relay credentials.
+
+To generate a secure key for development, run:
 ```bash
-cp .env.example .env
-# generate a secret key (recommended)
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-# then set DJANGO_SECRET_KEY in .env
 ```
-If secrets were accidentally committed previously, rotate them immediately and consider purging them from Git history.
 
 ---
 
-## Testing & Linting ✅
-- Backend tests: `cd DevSync_Backend && python manage.py test`
-- Frontend lint: `cd DevSync_Frontend && npm run lint`
+## Testing & Validation ✅
 
-
----
-
-✨
+*   **Run Backend Django Tests**:
+    ```bash
+    cd DevSync_Backend && python manage.py test
+    ```
+*   **Run Frontend TypeScript Checks & Linting**:
+    ```bash
+    cd DevSync_Frontend && npm run lint
+    ```

@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from rest_framework import serializers
 from .models import Project, CodeFile, Branch, ProjectActivity, Issue, Whiteboard, ProjectTask, ProjectInvite, UserProjectRole, DiscussionThread, DiscussionComment, PullRequest
 from django.contrib.auth import get_user_model
@@ -566,6 +569,7 @@ class MyAssignedTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectTask
         fields = [
+            "id",
             "task_id",
             "title",
             "status",
@@ -696,7 +700,7 @@ class ProjectInviteSerializer(serializers.ModelSerializer):
         email = validated_data.get('email')
         role = validated_data.get('role_to_assign')
 
-        print(f"DEBUG create() - project_slug: {project_slug}, email: {email}, role: {role}, sender: {sender}")
+        logger.debug(f"create() - project_slug: {project_slug}, email: {email}, role: {role}, sender: {sender}")
 
         result = ProjectInviteService.send_invite(
             project_slug=project_slug,
@@ -705,7 +709,7 @@ class ProjectInviteSerializer(serializers.ModelSerializer):
             sender_user=sender
         )
 
-        #print(f"DEBUG ProjectInviteService result: {result}")
+        logger.debug(f"ProjectInviteService result: {result}")
 
         if not result.get('success'):
             raise serializers.ValidationError(result.get('message', 'Unable to create invite'))

@@ -37,8 +37,9 @@ import { DevToolsSidebar } from "../components/dev-tools-sidebar"
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../components/contexts/auth-context";
 import { fetchUserProfile } from '../routes/profile';
-import { fetchDashboardTeammates, fetchProjects, fetchMyTasks } from "../routes/projects"
+import { fetchDashboardTeammates, fetchProjects, fetchMyTasks, updateTaskStatus } from "../routes/projects"
 import { useNotifications } from "../components/contexts/notifications-context"
+import { toast } from "sonner"
 import { getBrandHomePath } from "../lib/brand-link"
 
 interface UserState {
@@ -631,6 +632,18 @@ const Dashboard = () => {
     }
   }, [user?.username])
 
+  const handleUpdateTaskStatus = async (taskId: string | number, newStatus: string) => {
+    const result = await updateTaskStatus(taskId, newStatus);
+    if (result.success) {
+      toast.success("Task status updated!");
+      if (user?.username) {
+        fetchMyTasks(user.username).then(setTasks).catch(console.error);
+      }
+    } else {
+      toast.error("Failed to update task status");
+    }
+  };
+
   useEffect(() => {
     if (!user?.username) {
       setTeamMembers([])
@@ -842,7 +855,7 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            <TaskAllocation tasks={tasks} />
+            <TaskAllocation tasks={tasks} onUpdateStatus={handleUpdateTaskStatus} />
 
             <TeamMemberList members={teamMembers} />
           </aside>

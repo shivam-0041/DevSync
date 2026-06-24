@@ -167,7 +167,8 @@ export function CreateTaskModal({ isOpen, onClose, onCreateTask, projectData }: 
     }
   }
 
-  const selectedMember = projectData.contributors.find((member) => member.username === taskData.assignee)
+  const membersList = projectData?.members || projectData?.contributors || []
+  const selectedMember = membersList.find((member) => member.username === taskData.assignee)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -224,31 +225,38 @@ export function CreateTaskModal({ isOpen, onClose, onCreateTask, projectData }: 
                   <SelectValue placeholder="Select team member" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-600">
-                  {projectData.contributors.map((member) => (
-                    <SelectItem key={member.username} value={member.username}>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={member.avatar || "/placeholder.svg"} />
-                          <AvatarFallback className="text-xs bg-zinc-700">{member[0]}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium">{member.name}</div>
-                          <div className="text-xs text-zinc-400">{member.role}</div>
+                  {membersList.map((member) => {
+                    const displayName = member.username || member.email || "Unknown";
+                    const displayRole = member.role || "Contributor";
+                    const initials = displayName.slice(0, 2).toUpperCase();
+                    return (
+                      <SelectItem key={member.username} value={member.username}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={member.avatar || "/def-avatar.svg"} />
+                            <AvatarFallback className="text-xs bg-zinc-700">{initials}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{displayName}</div>
+                            <div className="text-xs text-zinc-400 capitalize">{displayRole}</div>
+                          </div>
                         </div>
-                      </div>
-                    </SelectItem>
-                  ))}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               {selectedMember && (
                 <div className="flex items-center gap-2 p-2 bg-zinc-800 rounded-md">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={selectedMember.avatar || "/placeholder.svg"} />
-                    <AvatarFallback className="text-xs bg-zinc-700">{selectedMember.initials}</AvatarFallback>
+                    <AvatarImage src={selectedMember.avatar || "/def-avatar.svg"} />
+                    <AvatarFallback className="text-xs bg-zinc-700">
+                      {(selectedMember.username || "U").slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="text-sm font-medium">{selectedMember.name}</div>
-                    <div className="text-xs text-zinc-400">{selectedMember.role}</div>
+                    <div className="text-sm font-medium">{selectedMember.username}</div>
+                    <div className="text-xs text-zinc-400 capitalize">{selectedMember.role || "Contributor"}</div>
                   </div>
                 </div>
               )}
@@ -430,7 +438,7 @@ export function CreateTaskModal({ isOpen, onClose, onCreateTask, projectData }: 
                   <strong>Title:</strong> {taskData.title || "Not set"}
                 </div>
                 <div>
-                  <strong>Assignee:</strong> {selectedMember?.name || "Not assigned"}
+                  <strong>Assignee:</strong> {selectedMember?.username || "Not assigned"}
                 </div>
                 <div>
                   <strong>Priority:</strong> <span className="capitalize">{taskData.priority}</span>

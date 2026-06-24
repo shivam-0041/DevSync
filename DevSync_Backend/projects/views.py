@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from rest_framework import generics, permissions
 from .serializers import (
     ProjectCreateSerializer,
@@ -212,6 +215,44 @@ class MyAssignedTasksView(ListAPIView):
         )
 
 
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_task_status(request, task_id):
+    """
+    Update the status of a specific task by its numeric id or string task_id.
+    PATCH /api/projects/tasks/{task_id}/update-status/
+    Body: {"status": "in_progress" | "done" | ...}
+    """
+    if str(task_id).isdigit():
+        task = get_object_or_404(ProjectTask, id=int(task_id))
+    else:
+        task = get_object_or_404(ProjectTask, task_id=task_id)
+        
+    project = task.project
+    
+    # Check if user is a member of the project or creator of project
+    is_member = UserProjectRole.objects.filter(project=project, user=request.user).exists()
+    is_creator = project.created_by == request.user
+    if not (is_member or is_creator):
+        return Response({"error": "You are not authorized to update tasks in this project."}, status=status.HTTP_403_FORBIDDEN)
+        
+    status_val = request.data.get("status")
+    if status_val not in dict(ProjectTask.STATUS_CHOICES):
+        return Response({"error": f"Invalid status: {status_val}"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    task.status = status_val
+    task.save()
+    
+    return Response({
+        "id": task.id,
+        "task_id": task.task_id,
+        "title": task.title,
+        "status": task.status,
+        "deadline": task.deadline,
+        "assign_to": task.assign_to.username if task.assign_to else None,
+    }, status=status.HTTP_200_OK)
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_dashboard_teammates(request):
@@ -342,9 +383,9 @@ def send_project_invite(request, slug):
             status=status.HTTP_405_METHOD_NOT_ALLOWED
         )
     
-    # Debug: print what frontend is sending
-    print(f"DEBUG request.data: {request.data}")
-    print(f"DEBUG slug from URL: {slug}")
+    # Debug: log what frontend is sending
+    logger.debug(f"request.data: {request.data}")
+    logger.debug(f"slug from URL: {slug}")
     
     # Use serializer to validate and create
     data = {
@@ -353,12 +394,12 @@ def send_project_invite(request, slug):
         'role_to_assign': request.data.get('role'),
     }
     
-    print(f"DEBUG data passed to serializer: {data}")
+    logger.debug(f"data passed to serializer: {data}")
 
     serializer = ProjectInviteSerializer(data=data, context={'request': request})
     is_valid = serializer.is_valid()
-    print(f"DEBUG serializer.is_valid(): {is_valid}")
-    print(f"DEBUG serializer.errors: {serializer.errors}")
+    logger.debug(f"serializer.is_valid(): {is_valid}")
+    logger.debug(f"serializer.errors: {serializer.errors}")
     
     if not is_valid:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -469,7 +510,7 @@ def get_project_members(request, slug):
         user_roles = UserProjectRole.objects.filter(project=project).select_related('user')
         members_data = ProjectMemberListSerializer(user_roles, many=True).data
     except Exception as e:
-        print(f"Error fetching members: {e}")
+        logger.error(f"Error fetching members: {e}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response({'members': members_data}, status=status.HTTP_200_OK)
